@@ -1,0 +1,313 @@
+{
+  "stats": {
+    "submitted": 10,
+    "finished": 10,
+    "running": 0
+  },
+  "data": [
+    [
+      1,
+      null,
+      209652396,
+      1.2345679012345678,
+      Infinity,
+      0.0,
+      2,
+      1714023885.1511595,
+      1714023885.405746,
+      {
+        "traceback": "Traceback (most recent call last):\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/smac/runner/target_function_runner.py\", line 184, in run\n    rval = self(config_copy, target_function, kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/smac/runner/target_function_runner.py\", line 257, in __call__\n    return algorithm(config, **algorithm_kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/data/repos/personal/ladder-shedding/train.py\", line 99, in run_trial\n    model_and_optimizer = initialize_model_and_optimizer(\n                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/data/repos/personal/ladder-shedding/train.py\", line 38, in initialize_model_and_optimizer\n    betas=(configuration[\"optimizer.betas.1\"], configuration[\"optimizer.betas.2\"]),\n           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/ConfigSpace/configuration.py\", line 179, in __getitem__\n    if key not in self.config_space:\n       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen _collections_abc>\", line 780, in __contains__\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/ConfigSpace/configuration_space.py\", line 1139, in __getitem__\n    raise HyperparameterNotFoundError(key, space=self)\nConfigSpace.exceptions.HyperparameterNotFoundError: Hyperparameter optimizer.betas.1 not found in space.\nConfiguration space object:\n  Hyperparameters:\n    beta1, Type: UniformFloat, Range: [0.8, 0.999], Default: 0.8939798655, on log-scale\n    beta2, Type: UniformFloat, Range: [0.99, 0.9999], Default: 0.9949376865, on log-scale\n    model.dropout, Type: UniformFloat, Range: [0.0, 0.5], Default: 0.25\n    model.hidden_size, Type: UniformInteger, Range: [16, 1024], Default: 520\n    model.non_linearity, Type: Categorical, Choices: {relu, tanh, gelu}, Default: relu\n    model.num_hidden_layers, Type: UniformInteger, Range: [1, 8], Default: 4\n    model.type, Type: Categorical, Choices: {feedforward, recurrent}, Default: feedforward\n    optimizer.learning_rate, Type: UniformFloat, Range: [1e-08, 0.1], Default: 3.16228e-05, on log-scale\n    optimizer.learning_rate_schedule, Type: Categorical, Choices: {constant, cosine_warm_restarts, one_cycle}, Default: constant\n    training.batch_size, Type: UniformInteger, Range: [4, 256], Default: 130\n    training.num_epochs, Type: UniformInteger, Range: [1, 100], Default: 50\n    weight_decay, Type: UniformFloat, Range: [0.005, 0.5], Default: 0.05, on log-scale\n\n",
+        "error": "HyperparameterNotFoundError('optimizer.betas.1', Configuration space object:\n  Hyperparameters:\n    beta1, Type: UniformFloat, Range: [0.8, 0.999], Default: 0.8939798655, on log-scale\n    beta2, Type: UniformFloat, Range: [0.99, 0.9999], Default: 0.9949376865, on log-scale\n    model.dropout, Type: UniformFloat, Range: [0.0, 0.5], Default: 0.25\n    model.hidden_size, Type: UniformInteger, Range: [16, 1024], Default: 520\n    model.non_linearity, Type: Categorical, Choices: {relu, tanh, gelu}, Default: relu\n    model.num_hidden_layers, Type: UniformInteger, Range: [1, 8], Default: 4\n    model.type, Type: Categorical, Choices: {feedforward, recurrent}, Default: feedforward\n    optimizer.learning_rate, Type: UniformFloat, Range: [1e-08, 0.1], Default: 3.16228e-05, on log-scale\n    optimizer.learning_rate_schedule, Type: Categorical, Choices: {constant, cosine_warm_restarts, one_cycle}, Default: constant\n    training.batch_size, Type: UniformInteger, Range: [4, 256], Default: 130\n    training.num_epochs, Type: UniformInteger, Range: [1, 100], Default: 50\n    weight_decay, Type: UniformFloat, Range: [0.005, 0.5], Default: 0.05, on log-scale\n, None)"
+      }
+    ],
+    [
+      2,
+      null,
+      209652396,
+      1.2345679012345678,
+      Infinity,
+      0.0,
+      2,
+      1714023885.4117546,
+      1714023885.5206673,
+      {
+        "traceback": "Traceback (most recent call last):\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/smac/runner/target_function_runner.py\", line 184, in run\n    rval = self(config_copy, target_function, kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/smac/runner/target_function_runner.py\", line 257, in __call__\n    return algorithm(config, **algorithm_kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/data/repos/personal/ladder-shedding/train.py\", line 99, in run_trial\n    model_and_optimizer = initialize_model_and_optimizer(\n                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/data/repos/personal/ladder-shedding/train.py\", line 38, in initialize_model_and_optimizer\n    betas=(configuration[\"optimizer.betas.1\"], configuration[\"optimizer.betas.2\"]),\n           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/ConfigSpace/configuration.py\", line 179, in __getitem__\n    if key not in self.config_space:\n       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen _collections_abc>\", line 780, in __contains__\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/ConfigSpace/configuration_space.py\", line 1139, in __getitem__\n    raise HyperparameterNotFoundError(key, space=self)\nConfigSpace.exceptions.HyperparameterNotFoundError: Hyperparameter optimizer.betas.1 not found in space.\nConfiguration space object:\n  Hyperparameters:\n    beta1, Type: UniformFloat, Range: [0.8, 0.999], Default: 0.8939798655, on log-scale\n    beta2, Type: UniformFloat, Range: [0.99, 0.9999], Default: 0.9949376865, on log-scale\n    model.dropout, Type: UniformFloat, Range: [0.0, 0.5], Default: 0.25\n    model.hidden_size, Type: UniformInteger, Range: [16, 1024], Default: 520\n    model.non_linearity, Type: Categorical, Choices: {relu, tanh, gelu}, Default: relu\n    model.num_hidden_layers, Type: UniformInteger, Range: [1, 8], Default: 4\n    model.type, Type: Categorical, Choices: {feedforward, recurrent}, Default: feedforward\n    optimizer.learning_rate, Type: UniformFloat, Range: [1e-08, 0.1], Default: 3.16228e-05, on log-scale\n    optimizer.learning_rate_schedule, Type: Categorical, Choices: {constant, cosine_warm_restarts, one_cycle}, Default: constant\n    training.batch_size, Type: UniformInteger, Range: [4, 256], Default: 130\n    training.num_epochs, Type: UniformInteger, Range: [1, 100], Default: 50\n    weight_decay, Type: UniformFloat, Range: [0.005, 0.5], Default: 0.05, on log-scale\n\n",
+        "error": "HyperparameterNotFoundError('optimizer.betas.1', Configuration space object:\n  Hyperparameters:\n    beta1, Type: UniformFloat, Range: [0.8, 0.999], Default: 0.8939798655, on log-scale\n    beta2, Type: UniformFloat, Range: [0.99, 0.9999], Default: 0.9949376865, on log-scale\n    model.dropout, Type: UniformFloat, Range: [0.0, 0.5], Default: 0.25\n    model.hidden_size, Type: UniformInteger, Range: [16, 1024], Default: 520\n    model.non_linearity, Type: Categorical, Choices: {relu, tanh, gelu}, Default: relu\n    model.num_hidden_layers, Type: UniformInteger, Range: [1, 8], Default: 4\n    model.type, Type: Categorical, Choices: {feedforward, recurrent}, Default: feedforward\n    optimizer.learning_rate, Type: UniformFloat, Range: [1e-08, 0.1], Default: 3.16228e-05, on log-scale\n    optimizer.learning_rate_schedule, Type: Categorical, Choices: {constant, cosine_warm_restarts, one_cycle}, Default: constant\n    training.batch_size, Type: UniformInteger, Range: [4, 256], Default: 130\n    training.num_epochs, Type: UniformInteger, Range: [1, 100], Default: 50\n    weight_decay, Type: UniformFloat, Range: [0.005, 0.5], Default: 0.05, on log-scale\n, None)"
+      }
+    ],
+    [
+      3,
+      null,
+      209652396,
+      1.2345679012345678,
+      Infinity,
+      0.0,
+      2,
+      1714023885.5245054,
+      1714023885.645753,
+      {
+        "traceback": "Traceback (most recent call last):\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/smac/runner/target_function_runner.py\", line 184, in run\n    rval = self(config_copy, target_function, kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/smac/runner/target_function_runner.py\", line 257, in __call__\n    return algorithm(config, **algorithm_kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/data/repos/personal/ladder-shedding/train.py\", line 99, in run_trial\n    model_and_optimizer = initialize_model_and_optimizer(\n                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/data/repos/personal/ladder-shedding/train.py\", line 38, in initialize_model_and_optimizer\n    betas=(configuration[\"optimizer.betas.1\"], configuration[\"optimizer.betas.2\"]),\n           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/ConfigSpace/configuration.py\", line 179, in __getitem__\n    if key not in self.config_space:\n       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen _collections_abc>\", line 780, in __contains__\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/ConfigSpace/configuration_space.py\", line 1139, in __getitem__\n    raise HyperparameterNotFoundError(key, space=self)\nConfigSpace.exceptions.HyperparameterNotFoundError: Hyperparameter optimizer.betas.1 not found in space.\nConfiguration space object:\n  Hyperparameters:\n    beta1, Type: UniformFloat, Range: [0.8, 0.999], Default: 0.8939798655, on log-scale\n    beta2, Type: UniformFloat, Range: [0.99, 0.9999], Default: 0.9949376865, on log-scale\n    model.dropout, Type: UniformFloat, Range: [0.0, 0.5], Default: 0.25\n    model.hidden_size, Type: UniformInteger, Range: [16, 1024], Default: 520\n    model.non_linearity, Type: Categorical, Choices: {relu, tanh, gelu}, Default: relu\n    model.num_hidden_layers, Type: UniformInteger, Range: [1, 8], Default: 4\n    model.type, Type: Categorical, Choices: {feedforward, recurrent}, Default: feedforward\n    optimizer.learning_rate, Type: UniformFloat, Range: [1e-08, 0.1], Default: 3.16228e-05, on log-scale\n    optimizer.learning_rate_schedule, Type: Categorical, Choices: {constant, cosine_warm_restarts, one_cycle}, Default: constant\n    training.batch_size, Type: UniformInteger, Range: [4, 256], Default: 130\n    training.num_epochs, Type: UniformInteger, Range: [1, 100], Default: 50\n    weight_decay, Type: UniformFloat, Range: [0.005, 0.5], Default: 0.05, on log-scale\n\n",
+        "error": "HyperparameterNotFoundError('optimizer.betas.1', Configuration space object:\n  Hyperparameters:\n    beta1, Type: UniformFloat, Range: [0.8, 0.999], Default: 0.8939798655, on log-scale\n    beta2, Type: UniformFloat, Range: [0.99, 0.9999], Default: 0.9949376865, on log-scale\n    model.dropout, Type: UniformFloat, Range: [0.0, 0.5], Default: 0.25\n    model.hidden_size, Type: UniformInteger, Range: [16, 1024], Default: 520\n    model.non_linearity, Type: Categorical, Choices: {relu, tanh, gelu}, Default: relu\n    model.num_hidden_layers, Type: UniformInteger, Range: [1, 8], Default: 4\n    model.type, Type: Categorical, Choices: {feedforward, recurrent}, Default: feedforward\n    optimizer.learning_rate, Type: UniformFloat, Range: [1e-08, 0.1], Default: 3.16228e-05, on log-scale\n    optimizer.learning_rate_schedule, Type: Categorical, Choices: {constant, cosine_warm_restarts, one_cycle}, Default: constant\n    training.batch_size, Type: UniformInteger, Range: [4, 256], Default: 130\n    training.num_epochs, Type: UniformInteger, Range: [1, 100], Default: 50\n    weight_decay, Type: UniformFloat, Range: [0.005, 0.5], Default: 0.05, on log-scale\n, None)"
+      }
+    ],
+    [
+      4,
+      null,
+      209652396,
+      1.2345679012345678,
+      Infinity,
+      0.0,
+      2,
+      1714023885.6498141,
+      1714023885.7552257,
+      {
+        "traceback": "Traceback (most recent call last):\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/smac/runner/target_function_runner.py\", line 184, in run\n    rval = self(config_copy, target_function, kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/smac/runner/target_function_runner.py\", line 257, in __call__\n    return algorithm(config, **algorithm_kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/data/repos/personal/ladder-shedding/train.py\", line 99, in run_trial\n    model_and_optimizer = initialize_model_and_optimizer(\n                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/data/repos/personal/ladder-shedding/train.py\", line 38, in initialize_model_and_optimizer\n    betas=(configuration[\"optimizer.betas.1\"], configuration[\"optimizer.betas.2\"]),\n           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/ConfigSpace/configuration.py\", line 179, in __getitem__\n    if key not in self.config_space:\n       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen _collections_abc>\", line 780, in __contains__\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/ConfigSpace/configuration_space.py\", line 1139, in __getitem__\n    raise HyperparameterNotFoundError(key, space=self)\nConfigSpace.exceptions.HyperparameterNotFoundError: Hyperparameter optimizer.betas.1 not found in space.\nConfiguration space object:\n  Hyperparameters:\n    beta1, Type: UniformFloat, Range: [0.8, 0.999], Default: 0.8939798655, on log-scale\n    beta2, Type: UniformFloat, Range: [0.99, 0.9999], Default: 0.9949376865, on log-scale\n    model.dropout, Type: UniformFloat, Range: [0.0, 0.5], Default: 0.25\n    model.hidden_size, Type: UniformInteger, Range: [16, 1024], Default: 520\n    model.non_linearity, Type: Categorical, Choices: {relu, tanh, gelu}, Default: relu\n    model.num_hidden_layers, Type: UniformInteger, Range: [1, 8], Default: 4\n    model.type, Type: Categorical, Choices: {feedforward, recurrent}, Default: feedforward\n    optimizer.learning_rate, Type: UniformFloat, Range: [1e-08, 0.1], Default: 3.16228e-05, on log-scale\n    optimizer.learning_rate_schedule, Type: Categorical, Choices: {constant, cosine_warm_restarts, one_cycle}, Default: constant\n    training.batch_size, Type: UniformInteger, Range: [4, 256], Default: 130\n    training.num_epochs, Type: UniformInteger, Range: [1, 100], Default: 50\n    weight_decay, Type: UniformFloat, Range: [0.005, 0.5], Default: 0.05, on log-scale\n\n",
+        "error": "HyperparameterNotFoundError('optimizer.betas.1', Configuration space object:\n  Hyperparameters:\n    beta1, Type: UniformFloat, Range: [0.8, 0.999], Default: 0.8939798655, on log-scale\n    beta2, Type: UniformFloat, Range: [0.99, 0.9999], Default: 0.9949376865, on log-scale\n    model.dropout, Type: UniformFloat, Range: [0.0, 0.5], Default: 0.25\n    model.hidden_size, Type: UniformInteger, Range: [16, 1024], Default: 520\n    model.non_linearity, Type: Categorical, Choices: {relu, tanh, gelu}, Default: relu\n    model.num_hidden_layers, Type: UniformInteger, Range: [1, 8], Default: 4\n    model.type, Type: Categorical, Choices: {feedforward, recurrent}, Default: feedforward\n    optimizer.learning_rate, Type: UniformFloat, Range: [1e-08, 0.1], Default: 3.16228e-05, on log-scale\n    optimizer.learning_rate_schedule, Type: Categorical, Choices: {constant, cosine_warm_restarts, one_cycle}, Default: constant\n    training.batch_size, Type: UniformInteger, Range: [4, 256], Default: 130\n    training.num_epochs, Type: UniformInteger, Range: [1, 100], Default: 50\n    weight_decay, Type: UniformFloat, Range: [0.005, 0.5], Default: 0.05, on log-scale\n, None)"
+      }
+    ],
+    [
+      5,
+      null,
+      209652396,
+      1.2345679012345678,
+      Infinity,
+      0.0,
+      2,
+      1714023885.7594335,
+      1714023885.8620846,
+      {
+        "traceback": "Traceback (most recent call last):\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/smac/runner/target_function_runner.py\", line 184, in run\n    rval = self(config_copy, target_function, kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/smac/runner/target_function_runner.py\", line 257, in __call__\n    return algorithm(config, **algorithm_kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/data/repos/personal/ladder-shedding/train.py\", line 99, in run_trial\n    model_and_optimizer = initialize_model_and_optimizer(\n                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/data/repos/personal/ladder-shedding/train.py\", line 38, in initialize_model_and_optimizer\n    betas=(configuration[\"optimizer.betas.1\"], configuration[\"optimizer.betas.2\"]),\n           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/ConfigSpace/configuration.py\", line 179, in __getitem__\n    if key not in self.config_space:\n       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen _collections_abc>\", line 780, in __contains__\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/ConfigSpace/configuration_space.py\", line 1139, in __getitem__\n    raise HyperparameterNotFoundError(key, space=self)\nConfigSpace.exceptions.HyperparameterNotFoundError: Hyperparameter optimizer.betas.1 not found in space.\nConfiguration space object:\n  Hyperparameters:\n    beta1, Type: UniformFloat, Range: [0.8, 0.999], Default: 0.8939798655, on log-scale\n    beta2, Type: UniformFloat, Range: [0.99, 0.9999], Default: 0.9949376865, on log-scale\n    model.dropout, Type: UniformFloat, Range: [0.0, 0.5], Default: 0.25\n    model.hidden_size, Type: UniformInteger, Range: [16, 1024], Default: 520\n    model.non_linearity, Type: Categorical, Choices: {relu, tanh, gelu}, Default: relu\n    model.num_hidden_layers, Type: UniformInteger, Range: [1, 8], Default: 4\n    model.type, Type: Categorical, Choices: {feedforward, recurrent}, Default: feedforward\n    optimizer.learning_rate, Type: UniformFloat, Range: [1e-08, 0.1], Default: 3.16228e-05, on log-scale\n    optimizer.learning_rate_schedule, Type: Categorical, Choices: {constant, cosine_warm_restarts, one_cycle}, Default: constant\n    training.batch_size, Type: UniformInteger, Range: [4, 256], Default: 130\n    training.num_epochs, Type: UniformInteger, Range: [1, 100], Default: 50\n    weight_decay, Type: UniformFloat, Range: [0.005, 0.5], Default: 0.05, on log-scale\n\n",
+        "error": "HyperparameterNotFoundError('optimizer.betas.1', Configuration space object:\n  Hyperparameters:\n    beta1, Type: UniformFloat, Range: [0.8, 0.999], Default: 0.8939798655, on log-scale\n    beta2, Type: UniformFloat, Range: [0.99, 0.9999], Default: 0.9949376865, on log-scale\n    model.dropout, Type: UniformFloat, Range: [0.0, 0.5], Default: 0.25\n    model.hidden_size, Type: UniformInteger, Range: [16, 1024], Default: 520\n    model.non_linearity, Type: Categorical, Choices: {relu, tanh, gelu}, Default: relu\n    model.num_hidden_layers, Type: UniformInteger, Range: [1, 8], Default: 4\n    model.type, Type: Categorical, Choices: {feedforward, recurrent}, Default: feedforward\n    optimizer.learning_rate, Type: UniformFloat, Range: [1e-08, 0.1], Default: 3.16228e-05, on log-scale\n    optimizer.learning_rate_schedule, Type: Categorical, Choices: {constant, cosine_warm_restarts, one_cycle}, Default: constant\n    training.batch_size, Type: UniformInteger, Range: [4, 256], Default: 130\n    training.num_epochs, Type: UniformInteger, Range: [1, 100], Default: 50\n    weight_decay, Type: UniformFloat, Range: [0.005, 0.5], Default: 0.05, on log-scale\n, None)"
+      }
+    ],
+    [
+      6,
+      null,
+      209652396,
+      1.2345679012345678,
+      Infinity,
+      0.0,
+      2,
+      1714023885.8662298,
+      1714023885.9684446,
+      {
+        "traceback": "Traceback (most recent call last):\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/smac/runner/target_function_runner.py\", line 184, in run\n    rval = self(config_copy, target_function, kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/smac/runner/target_function_runner.py\", line 257, in __call__\n    return algorithm(config, **algorithm_kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/data/repos/personal/ladder-shedding/train.py\", line 99, in run_trial\n    model_and_optimizer = initialize_model_and_optimizer(\n                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/data/repos/personal/ladder-shedding/train.py\", line 38, in initialize_model_and_optimizer\n    betas=(configuration[\"optimizer.betas.1\"], configuration[\"optimizer.betas.2\"]),\n           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/ConfigSpace/configuration.py\", line 179, in __getitem__\n    if key not in self.config_space:\n       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen _collections_abc>\", line 780, in __contains__\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/ConfigSpace/configuration_space.py\", line 1139, in __getitem__\n    raise HyperparameterNotFoundError(key, space=self)\nConfigSpace.exceptions.HyperparameterNotFoundError: Hyperparameter optimizer.betas.1 not found in space.\nConfiguration space object:\n  Hyperparameters:\n    beta1, Type: UniformFloat, Range: [0.8, 0.999], Default: 0.8939798655, on log-scale\n    beta2, Type: UniformFloat, Range: [0.99, 0.9999], Default: 0.9949376865, on log-scale\n    model.dropout, Type: UniformFloat, Range: [0.0, 0.5], Default: 0.25\n    model.hidden_size, Type: UniformInteger, Range: [16, 1024], Default: 520\n    model.non_linearity, Type: Categorical, Choices: {relu, tanh, gelu}, Default: relu\n    model.num_hidden_layers, Type: UniformInteger, Range: [1, 8], Default: 4\n    model.type, Type: Categorical, Choices: {feedforward, recurrent}, Default: feedforward\n    optimizer.learning_rate, Type: UniformFloat, Range: [1e-08, 0.1], Default: 3.16228e-05, on log-scale\n    optimizer.learning_rate_schedule, Type: Categorical, Choices: {constant, cosine_warm_restarts, one_cycle}, Default: constant\n    training.batch_size, Type: UniformInteger, Range: [4, 256], Default: 130\n    training.num_epochs, Type: UniformInteger, Range: [1, 100], Default: 50\n    weight_decay, Type: UniformFloat, Range: [0.005, 0.5], Default: 0.05, on log-scale\n\n",
+        "error": "HyperparameterNotFoundError('optimizer.betas.1', Configuration space object:\n  Hyperparameters:\n    beta1, Type: UniformFloat, Range: [0.8, 0.999], Default: 0.8939798655, on log-scale\n    beta2, Type: UniformFloat, Range: [0.99, 0.9999], Default: 0.9949376865, on log-scale\n    model.dropout, Type: UniformFloat, Range: [0.0, 0.5], Default: 0.25\n    model.hidden_size, Type: UniformInteger, Range: [16, 1024], Default: 520\n    model.non_linearity, Type: Categorical, Choices: {relu, tanh, gelu}, Default: relu\n    model.num_hidden_layers, Type: UniformInteger, Range: [1, 8], Default: 4\n    model.type, Type: Categorical, Choices: {feedforward, recurrent}, Default: feedforward\n    optimizer.learning_rate, Type: UniformFloat, Range: [1e-08, 0.1], Default: 3.16228e-05, on log-scale\n    optimizer.learning_rate_schedule, Type: Categorical, Choices: {constant, cosine_warm_restarts, one_cycle}, Default: constant\n    training.batch_size, Type: UniformInteger, Range: [4, 256], Default: 130\n    training.num_epochs, Type: UniformInteger, Range: [1, 100], Default: 50\n    weight_decay, Type: UniformFloat, Range: [0.005, 0.5], Default: 0.05, on log-scale\n, None)"
+      }
+    ],
+    [
+      7,
+      null,
+      209652396,
+      1.2345679012345678,
+      Infinity,
+      0.0,
+      2,
+      1714023885.9726274,
+      1714023886.073817,
+      {
+        "traceback": "Traceback (most recent call last):\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/smac/runner/target_function_runner.py\", line 184, in run\n    rval = self(config_copy, target_function, kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/smac/runner/target_function_runner.py\", line 257, in __call__\n    return algorithm(config, **algorithm_kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/data/repos/personal/ladder-shedding/train.py\", line 99, in run_trial\n    model_and_optimizer = initialize_model_and_optimizer(\n                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/data/repos/personal/ladder-shedding/train.py\", line 38, in initialize_model_and_optimizer\n    betas=(configuration[\"optimizer.betas.1\"], configuration[\"optimizer.betas.2\"]),\n           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/ConfigSpace/configuration.py\", line 179, in __getitem__\n    if key not in self.config_space:\n       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen _collections_abc>\", line 780, in __contains__\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/ConfigSpace/configuration_space.py\", line 1139, in __getitem__\n    raise HyperparameterNotFoundError(key, space=self)\nConfigSpace.exceptions.HyperparameterNotFoundError: Hyperparameter optimizer.betas.1 not found in space.\nConfiguration space object:\n  Hyperparameters:\n    beta1, Type: UniformFloat, Range: [0.8, 0.999], Default: 0.8939798655, on log-scale\n    beta2, Type: UniformFloat, Range: [0.99, 0.9999], Default: 0.9949376865, on log-scale\n    model.dropout, Type: UniformFloat, Range: [0.0, 0.5], Default: 0.25\n    model.hidden_size, Type: UniformInteger, Range: [16, 1024], Default: 520\n    model.non_linearity, Type: Categorical, Choices: {relu, tanh, gelu}, Default: relu\n    model.num_hidden_layers, Type: UniformInteger, Range: [1, 8], Default: 4\n    model.type, Type: Categorical, Choices: {feedforward, recurrent}, Default: feedforward\n    optimizer.learning_rate, Type: UniformFloat, Range: [1e-08, 0.1], Default: 3.16228e-05, on log-scale\n    optimizer.learning_rate_schedule, Type: Categorical, Choices: {constant, cosine_warm_restarts, one_cycle}, Default: constant\n    training.batch_size, Type: UniformInteger, Range: [4, 256], Default: 130\n    training.num_epochs, Type: UniformInteger, Range: [1, 100], Default: 50\n    weight_decay, Type: UniformFloat, Range: [0.005, 0.5], Default: 0.05, on log-scale\n\n",
+        "error": "HyperparameterNotFoundError('optimizer.betas.1', Configuration space object:\n  Hyperparameters:\n    beta1, Type: UniformFloat, Range: [0.8, 0.999], Default: 0.8939798655, on log-scale\n    beta2, Type: UniformFloat, Range: [0.99, 0.9999], Default: 0.9949376865, on log-scale\n    model.dropout, Type: UniformFloat, Range: [0.0, 0.5], Default: 0.25\n    model.hidden_size, Type: UniformInteger, Range: [16, 1024], Default: 520\n    model.non_linearity, Type: Categorical, Choices: {relu, tanh, gelu}, Default: relu\n    model.num_hidden_layers, Type: UniformInteger, Range: [1, 8], Default: 4\n    model.type, Type: Categorical, Choices: {feedforward, recurrent}, Default: feedforward\n    optimizer.learning_rate, Type: UniformFloat, Range: [1e-08, 0.1], Default: 3.16228e-05, on log-scale\n    optimizer.learning_rate_schedule, Type: Categorical, Choices: {constant, cosine_warm_restarts, one_cycle}, Default: constant\n    training.batch_size, Type: UniformInteger, Range: [4, 256], Default: 130\n    training.num_epochs, Type: UniformInteger, Range: [1, 100], Default: 50\n    weight_decay, Type: UniformFloat, Range: [0.005, 0.5], Default: 0.05, on log-scale\n, None)"
+      }
+    ],
+    [
+      8,
+      null,
+      209652396,
+      1.2345679012345678,
+      Infinity,
+      0.0,
+      2,
+      1714023886.0780952,
+      1714023886.1807418,
+      {
+        "traceback": "Traceback (most recent call last):\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/smac/runner/target_function_runner.py\", line 184, in run\n    rval = self(config_copy, target_function, kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/smac/runner/target_function_runner.py\", line 257, in __call__\n    return algorithm(config, **algorithm_kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/data/repos/personal/ladder-shedding/train.py\", line 99, in run_trial\n    model_and_optimizer = initialize_model_and_optimizer(\n                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/data/repos/personal/ladder-shedding/train.py\", line 38, in initialize_model_and_optimizer\n    betas=(configuration[\"optimizer.betas.1\"], configuration[\"optimizer.betas.2\"]),\n           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/ConfigSpace/configuration.py\", line 179, in __getitem__\n    if key not in self.config_space:\n       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen _collections_abc>\", line 780, in __contains__\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/ConfigSpace/configuration_space.py\", line 1139, in __getitem__\n    raise HyperparameterNotFoundError(key, space=self)\nConfigSpace.exceptions.HyperparameterNotFoundError: Hyperparameter optimizer.betas.1 not found in space.\nConfiguration space object:\n  Hyperparameters:\n    beta1, Type: UniformFloat, Range: [0.8, 0.999], Default: 0.8939798655, on log-scale\n    beta2, Type: UniformFloat, Range: [0.99, 0.9999], Default: 0.9949376865, on log-scale\n    model.dropout, Type: UniformFloat, Range: [0.0, 0.5], Default: 0.25\n    model.hidden_size, Type: UniformInteger, Range: [16, 1024], Default: 520\n    model.non_linearity, Type: Categorical, Choices: {relu, tanh, gelu}, Default: relu\n    model.num_hidden_layers, Type: UniformInteger, Range: [1, 8], Default: 4\n    model.type, Type: Categorical, Choices: {feedforward, recurrent}, Default: feedforward\n    optimizer.learning_rate, Type: UniformFloat, Range: [1e-08, 0.1], Default: 3.16228e-05, on log-scale\n    optimizer.learning_rate_schedule, Type: Categorical, Choices: {constant, cosine_warm_restarts, one_cycle}, Default: constant\n    training.batch_size, Type: UniformInteger, Range: [4, 256], Default: 130\n    training.num_epochs, Type: UniformInteger, Range: [1, 100], Default: 50\n    weight_decay, Type: UniformFloat, Range: [0.005, 0.5], Default: 0.05, on log-scale\n\n",
+        "error": "HyperparameterNotFoundError('optimizer.betas.1', Configuration space object:\n  Hyperparameters:\n    beta1, Type: UniformFloat, Range: [0.8, 0.999], Default: 0.8939798655, on log-scale\n    beta2, Type: UniformFloat, Range: [0.99, 0.9999], Default: 0.9949376865, on log-scale\n    model.dropout, Type: UniformFloat, Range: [0.0, 0.5], Default: 0.25\n    model.hidden_size, Type: UniformInteger, Range: [16, 1024], Default: 520\n    model.non_linearity, Type: Categorical, Choices: {relu, tanh, gelu}, Default: relu\n    model.num_hidden_layers, Type: UniformInteger, Range: [1, 8], Default: 4\n    model.type, Type: Categorical, Choices: {feedforward, recurrent}, Default: feedforward\n    optimizer.learning_rate, Type: UniformFloat, Range: [1e-08, 0.1], Default: 3.16228e-05, on log-scale\n    optimizer.learning_rate_schedule, Type: Categorical, Choices: {constant, cosine_warm_restarts, one_cycle}, Default: constant\n    training.batch_size, Type: UniformInteger, Range: [4, 256], Default: 130\n    training.num_epochs, Type: UniformInteger, Range: [1, 100], Default: 50\n    weight_decay, Type: UniformFloat, Range: [0.005, 0.5], Default: 0.05, on log-scale\n, None)"
+      }
+    ],
+    [
+      9,
+      null,
+      209652396,
+      1.2345679012345678,
+      Infinity,
+      0.0,
+      2,
+      1714023886.188129,
+      1714023886.2946136,
+      {
+        "traceback": "Traceback (most recent call last):\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/smac/runner/target_function_runner.py\", line 184, in run\n    rval = self(config_copy, target_function, kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/smac/runner/target_function_runner.py\", line 257, in __call__\n    return algorithm(config, **algorithm_kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/data/repos/personal/ladder-shedding/train.py\", line 99, in run_trial\n    model_and_optimizer = initialize_model_and_optimizer(\n                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/data/repos/personal/ladder-shedding/train.py\", line 38, in initialize_model_and_optimizer\n    betas=(configuration[\"optimizer.betas.1\"], configuration[\"optimizer.betas.2\"]),\n           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/ConfigSpace/configuration.py\", line 179, in __getitem__\n    if key not in self.config_space:\n       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen _collections_abc>\", line 780, in __contains__\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/ConfigSpace/configuration_space.py\", line 1139, in __getitem__\n    raise HyperparameterNotFoundError(key, space=self)\nConfigSpace.exceptions.HyperparameterNotFoundError: Hyperparameter optimizer.betas.1 not found in space.\nConfiguration space object:\n  Hyperparameters:\n    beta1, Type: UniformFloat, Range: [0.8, 0.999], Default: 0.8939798655, on log-scale\n    beta2, Type: UniformFloat, Range: [0.99, 0.9999], Default: 0.9949376865, on log-scale\n    model.dropout, Type: UniformFloat, Range: [0.0, 0.5], Default: 0.25\n    model.hidden_size, Type: UniformInteger, Range: [16, 1024], Default: 520\n    model.non_linearity, Type: Categorical, Choices: {relu, tanh, gelu}, Default: relu\n    model.num_hidden_layers, Type: UniformInteger, Range: [1, 8], Default: 4\n    model.type, Type: Categorical, Choices: {feedforward, recurrent}, Default: feedforward\n    optimizer.learning_rate, Type: UniformFloat, Range: [1e-08, 0.1], Default: 3.16228e-05, on log-scale\n    optimizer.learning_rate_schedule, Type: Categorical, Choices: {constant, cosine_warm_restarts, one_cycle}, Default: constant\n    training.batch_size, Type: UniformInteger, Range: [4, 256], Default: 130\n    training.num_epochs, Type: UniformInteger, Range: [1, 100], Default: 50\n    weight_decay, Type: UniformFloat, Range: [0.005, 0.5], Default: 0.05, on log-scale\n\n",
+        "error": "HyperparameterNotFoundError('optimizer.betas.1', Configuration space object:\n  Hyperparameters:\n    beta1, Type: UniformFloat, Range: [0.8, 0.999], Default: 0.8939798655, on log-scale\n    beta2, Type: UniformFloat, Range: [0.99, 0.9999], Default: 0.9949376865, on log-scale\n    model.dropout, Type: UniformFloat, Range: [0.0, 0.5], Default: 0.25\n    model.hidden_size, Type: UniformInteger, Range: [16, 1024], Default: 520\n    model.non_linearity, Type: Categorical, Choices: {relu, tanh, gelu}, Default: relu\n    model.num_hidden_layers, Type: UniformInteger, Range: [1, 8], Default: 4\n    model.type, Type: Categorical, Choices: {feedforward, recurrent}, Default: feedforward\n    optimizer.learning_rate, Type: UniformFloat, Range: [1e-08, 0.1], Default: 3.16228e-05, on log-scale\n    optimizer.learning_rate_schedule, Type: Categorical, Choices: {constant, cosine_warm_restarts, one_cycle}, Default: constant\n    training.batch_size, Type: UniformInteger, Range: [4, 256], Default: 130\n    training.num_epochs, Type: UniformInteger, Range: [1, 100], Default: 50\n    weight_decay, Type: UniformFloat, Range: [0.005, 0.5], Default: 0.05, on log-scale\n, None)"
+      }
+    ],
+    [
+      10,
+      null,
+      209652396,
+      1.2345679012345678,
+      Infinity,
+      0.0,
+      2,
+      1714023886.2990687,
+      1714023886.4062023,
+      {
+        "traceback": "Traceback (most recent call last):\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/smac/runner/target_function_runner.py\", line 184, in run\n    rval = self(config_copy, target_function, kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/smac/runner/target_function_runner.py\", line 257, in __call__\n    return algorithm(config, **algorithm_kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/data/repos/personal/ladder-shedding/train.py\", line 99, in run_trial\n    model_and_optimizer = initialize_model_and_optimizer(\n                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/data/repos/personal/ladder-shedding/train.py\", line 38, in initialize_model_and_optimizer\n    betas=(configuration[\"optimizer.betas.1\"], configuration[\"optimizer.betas.2\"]),\n           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/ConfigSpace/configuration.py\", line 179, in __getitem__\n    if key not in self.config_space:\n       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen _collections_abc>\", line 780, in __contains__\n  File \"/home/tanner/miniconda3/envs/ladder-shedding/lib/python3.11/site-packages/ConfigSpace/configuration_space.py\", line 1139, in __getitem__\n    raise HyperparameterNotFoundError(key, space=self)\nConfigSpace.exceptions.HyperparameterNotFoundError: Hyperparameter optimizer.betas.1 not found in space.\nConfiguration space object:\n  Hyperparameters:\n    beta1, Type: UniformFloat, Range: [0.8, 0.999], Default: 0.8939798655, on log-scale\n    beta2, Type: UniformFloat, Range: [0.99, 0.9999], Default: 0.9949376865, on log-scale\n    model.dropout, Type: UniformFloat, Range: [0.0, 0.5], Default: 0.25\n    model.hidden_size, Type: UniformInteger, Range: [16, 1024], Default: 520\n    model.non_linearity, Type: Categorical, Choices: {relu, tanh, gelu}, Default: relu\n    model.num_hidden_layers, Type: UniformInteger, Range: [1, 8], Default: 4\n    model.type, Type: Categorical, Choices: {feedforward, recurrent}, Default: feedforward\n    optimizer.learning_rate, Type: UniformFloat, Range: [1e-08, 0.1], Default: 3.16228e-05, on log-scale\n    optimizer.learning_rate_schedule, Type: Categorical, Choices: {constant, cosine_warm_restarts, one_cycle}, Default: constant\n    training.batch_size, Type: UniformInteger, Range: [4, 256], Default: 130\n    training.num_epochs, Type: UniformInteger, Range: [1, 100], Default: 50\n    weight_decay, Type: UniformFloat, Range: [0.005, 0.5], Default: 0.05, on log-scale\n\n",
+        "error": "HyperparameterNotFoundError('optimizer.betas.1', Configuration space object:\n  Hyperparameters:\n    beta1, Type: UniformFloat, Range: [0.8, 0.999], Default: 0.8939798655, on log-scale\n    beta2, Type: UniformFloat, Range: [0.99, 0.9999], Default: 0.9949376865, on log-scale\n    model.dropout, Type: UniformFloat, Range: [0.0, 0.5], Default: 0.25\n    model.hidden_size, Type: UniformInteger, Range: [16, 1024], Default: 520\n    model.non_linearity, Type: Categorical, Choices: {relu, tanh, gelu}, Default: relu\n    model.num_hidden_layers, Type: UniformInteger, Range: [1, 8], Default: 4\n    model.type, Type: Categorical, Choices: {feedforward, recurrent}, Default: feedforward\n    optimizer.learning_rate, Type: UniformFloat, Range: [1e-08, 0.1], Default: 3.16228e-05, on log-scale\n    optimizer.learning_rate_schedule, Type: Categorical, Choices: {constant, cosine_warm_restarts, one_cycle}, Default: constant\n    training.batch_size, Type: UniformInteger, Range: [4, 256], Default: 130\n    training.num_epochs, Type: UniformInteger, Range: [1, 100], Default: 50\n    weight_decay, Type: UniformFloat, Range: [0.005, 0.5], Default: 0.05, on log-scale\n, None)"
+      }
+    ]
+  ],
+  "configs": {
+    "1": {
+      "beta1": 0.9037265573695236,
+      "beta2": 0.9959555600313249,
+      "model.dropout": 0.21182739966945235,
+      "model.hidden_size": 457,
+      "model.non_linearity": "gelu",
+      "model.num_hidden_layers": 7,
+      "model.type": "recurrent",
+      "optimizer.learning_rate": 3.142334455004115e-08,
+      "optimizer.learning_rate_schedule": "constant",
+      "training.batch_size": 200,
+      "training.num_epochs": 98,
+      "weight_decay": 0.041872484342184046
+    },
+    "2": {
+      "beta1": 0.9377525193445301,
+      "beta2": 0.995382127406387,
+      "model.dropout": 0.32294705653332806,
+      "model.hidden_size": 915,
+      "model.non_linearity": "tanh",
+      "model.num_hidden_layers": 5,
+      "model.type": "recurrent",
+      "optimizer.learning_rate": 4.0729126673614506e-08,
+      "optimizer.learning_rate_schedule": "one_cycle",
+      "training.batch_size": 224,
+      "training.num_epochs": 80,
+      "weight_decay": 0.18198196783931941
+    },
+    "3": {
+      "beta1": 0.8212976336223433,
+      "beta2": 0.9963238636234685,
+      "model.dropout": 0.0716766437045232,
+      "model.hidden_size": 969,
+      "model.non_linearity": "tanh",
+      "model.num_hidden_layers": 4,
+      "model.type": "feedforward",
+      "optimizer.learning_rate": 0.002628063327422683,
+      "optimizer.learning_rate_schedule": "cosine_warm_restarts",
+      "training.batch_size": 147,
+      "training.num_epochs": 2,
+      "weight_decay": 0.0859490337165969
+    },
+    "4": {
+      "beta1": 0.9165205955682117,
+      "beta2": 0.9960960020222022,
+      "model.dropout": 0.4718740392573121,
+      "model.hidden_size": 703,
+      "model.non_linearity": "tanh",
+      "model.num_hidden_layers": 4,
+      "model.type": "recurrent",
+      "optimizer.learning_rate": 2.6398442318877336e-08,
+      "optimizer.learning_rate_schedule": "one_cycle",
+      "training.batch_size": 173,
+      "training.num_epochs": 22,
+      "weight_decay": 0.009053627033315545
+    },
+    "5": {
+      "beta1": 0.8580667931121054,
+      "beta2": 0.9935893431557985,
+      "model.dropout": 0.2850983852089398,
+      "model.hidden_size": 458,
+      "model.non_linearity": "gelu",
+      "model.num_hidden_layers": 1,
+      "model.type": "feedforward",
+      "optimizer.learning_rate": 1.3463768176041062e-07,
+      "optimizer.learning_rate_schedule": "cosine_warm_restarts",
+      "training.batch_size": 68,
+      "training.num_epochs": 47,
+      "weight_decay": 0.015410658207214743
+    },
+    "6": {
+      "beta1": 0.8287559458815665,
+      "beta2": 0.9910878837660763,
+      "model.dropout": 0.3281647947326367,
+      "model.hidden_size": 155,
+      "model.non_linearity": "relu",
+      "model.num_hidden_layers": 3,
+      "model.type": "recurrent",
+      "optimizer.learning_rate": 4.783094160808158e-08,
+      "optimizer.learning_rate_schedule": "one_cycle",
+      "training.batch_size": 28,
+      "training.num_epochs": 98,
+      "weight_decay": 0.04327852068680907
+    },
+    "7": {
+      "beta1": 0.9938560883845735,
+      "beta2": 0.9959761944707288,
+      "model.dropout": 0.36963178969915084,
+      "model.hidden_size": 55,
+      "model.non_linearity": "relu",
+      "model.num_hidden_layers": 1,
+      "model.type": "feedforward",
+      "optimizer.learning_rate": 6.777882452468055e-08,
+      "optimizer.learning_rate_schedule": "constant",
+      "training.batch_size": 108,
+      "training.num_epochs": 7,
+      "weight_decay": 0.12131492751842894
+    },
+    "8": {
+      "beta1": 0.9073046700845909,
+      "beta2": 0.9926177609642047,
+      "model.dropout": 0.26162402673334983,
+      "model.hidden_size": 110,
+      "model.non_linearity": "tanh",
+      "model.num_hidden_layers": 8,
+      "model.type": "feedforward",
+      "optimizer.learning_rate": 0.00046975635031855275,
+      "optimizer.learning_rate_schedule": "constant",
+      "training.batch_size": 185,
+      "training.num_epochs": 29,
+      "weight_decay": 0.01162392310530722
+    },
+    "9": {
+      "beta1": 0.911326746085295,
+      "beta2": 0.9901980957863573,
+      "model.dropout": 0.41447001460868155,
+      "model.hidden_size": 20,
+      "model.non_linearity": "gelu",
+      "model.num_hidden_layers": 3,
+      "model.type": "recurrent",
+      "optimizer.learning_rate": 0.05436505300804022,
+      "optimizer.learning_rate_schedule": "constant",
+      "training.batch_size": 149,
+      "training.num_epochs": 60,
+      "weight_decay": 0.06973869494036398
+    },
+    "10": {
+      "beta1": 0.8406435774883907,
+      "beta2": 0.9994299945459894,
+      "model.dropout": 0.22356268930881368,
+      "model.hidden_size": 870,
+      "model.non_linearity": "gelu",
+      "model.num_hidden_layers": 3,
+      "model.type": "recurrent",
+      "optimizer.learning_rate": 5.964035034041659e-06,
+      "optimizer.learning_rate_schedule": "one_cycle",
+      "training.batch_size": 151,
+      "training.num_epochs": 89,
+      "weight_decay": 0.1213481569189543
+    }
+  },
+  "config_origins": {
+    "1": "Initial Design: Random",
+    "2": "Initial Design: Random",
+    "3": "Custom",
+    "4": "Custom",
+    "5": "Custom",
+    "6": "Custom",
+    "7": "Custom",
+    "8": "Custom",
+    "9": "Custom",
+    "10": "Custom"
+  }
+}

@@ -1,0 +1,503 @@
+{
+  "incumbent_ids": [
+    288
+  ],
+  "rejected_config_ids": [
+    128,
+    237,
+    245
+  ],
+  "incumbents_changed": 10,
+  "trajectory": [
+    {
+      "config_ids": [
+        1
+      ],
+      "costs": [
+        0.40667309773465005
+      ],
+      "trial": 1,
+      "walltime": 6.03040075302124
+    },
+    {
+      "config_ids": [
+        4
+      ],
+      "costs": [
+        0.40348181620240214
+      ],
+      "trial": 4,
+      "walltime": 21.773005962371826
+    },
+    {
+      "config_ids": [
+        27
+      ],
+      "costs": [
+        0.40203648634530886
+      ],
+      "trial": 27,
+      "walltime": 221.9016149044037
+    },
+    {
+      "config_ids": [
+        33
+      ],
+      "costs": [
+        0.3858467730264815
+      ],
+      "trial": 53,
+      "walltime": 1593.4672501087189
+    },
+    {
+      "config_ids": [
+        42
+      ],
+      "costs": [
+        0.3837940884047541
+      ],
+      "trial": 64,
+      "walltime": 2108.642547607422
+    },
+    {
+      "config_ids": [
+        98
+      ],
+      "costs": [
+        0.38287076376951656
+      ],
+      "trial": 138,
+      "walltime": 5764.755863428116
+    },
+    {
+      "config_ids": [
+        128
+      ],
+      "costs": [
+        0.37930084207543613
+      ],
+      "trial": 195,
+      "walltime": 6888.089710474014
+    },
+    {
+      "config_ids": [
+        237
+      ],
+      "costs": [
+        0.37922300409387655
+      ],
+      "trial": 338,
+      "walltime": 10782.112408876419
+    },
+    {
+      "config_ids": [
+        245
+      ],
+      "costs": [
+        0.37735664391959156
+      ],
+      "trial": 343,
+      "walltime": 11130.885311603546
+    },
+    {
+      "config_ids": [
+        288
+      ],
+      "costs": [
+        0.37716493739022156
+      ],
+      "trial": 407,
+      "walltime": 13118.626647472382
+    }
+  ],
+  "state": {
+    "tracker": {
+      "0,0": [
+        [
+          0,
+          [
+            {
+              "model.dropout": 0.3624368354423479,
+              "model.hidden_size": 676,
+              "model.non_linearity": "tanh",
+              "model.num_hidden_layers": 5,
+              "model.type": "feedforward",
+              "optimizer.betas.1": 0.8936886372720467,
+              "optimizer.betas.2": 0.9900015668033829,
+              "optimizer.learning_rate": 0.0006543729559190882,
+              "optimizer.learning_rate_schedule": "cosine_warm_restarts",
+              "optimizer.weight_decay": 0.007964384178114665,
+              "training.batch_size": 149,
+              "training.num_epochs": 97
+            },
+            {
+              "model.dropout": 0.40377561919505806,
+              "model.hidden_size": 700,
+              "model.non_linearity": "gelu",
+              "model.num_hidden_layers": 5,
+              "model.type": "feedforward",
+              "optimizer.betas.1": 0.8917751709897128,
+              "optimizer.betas.2": 0.9900127857118374,
+              "optimizer.learning_rate": 0.00013869699632766886,
+              "optimizer.learning_rate_schedule": "cosine_warm_restarts",
+              "optimizer.weight_decay": 0.007578138788220611,
+              "training.batch_size": 163,
+              "training.num_epochs": 97
+            },
+            {
+              "model.dropout": 0.3492562058964371,
+              "model.hidden_size": 680,
+              "model.non_linearity": "tanh",
+              "model.num_hidden_layers": 2,
+              "model.type": "feedforward",
+              "optimizer.betas.1": 0.8942100731930394,
+              "optimizer.betas.2": 0.9900327379144986,
+              "optimizer.learning_rate": 0.0003525085399433531,
+              "optimizer.learning_rate_schedule": "cosine_warm_restarts",
+              "optimizer.weight_decay": 0.007766600820116168,
+              "training.batch_size": 149,
+              "training.num_epochs": 97
+            },
+            {
+              "model.dropout": 0.44334161042372616,
+              "model.hidden_size": 854,
+              "model.non_linearity": "relu",
+              "model.num_hidden_layers": 5,
+              "model.type": "recurrent",
+              "optimizer.betas.1": 0.9905090114428727,
+              "optimizer.betas.2": 0.9902289264666955,
+              "optimizer.learning_rate": 5.2206718581745595e-05,
+              "optimizer.learning_rate_schedule": "constant",
+              "optimizer.weight_decay": 0.006401707352280156,
+              "training.batch_size": 152,
+              "training.num_epochs": 78
+            },
+            {
+              "model.dropout": 0.12219148526952586,
+              "model.hidden_size": 721,
+              "model.non_linearity": "tanh",
+              "model.num_hidden_layers": 4,
+              "model.type": "recurrent",
+              "optimizer.betas.1": 0.8780738726381074,
+              "optimizer.betas.2": 0.9900142273080317,
+              "optimizer.learning_rate": 0.00015005674572050328,
+              "optimizer.learning_rate_schedule": "one_cycle",
+              "optimizer.weight_decay": 0.007649359125843631,
+              "training.batch_size": 198,
+              "training.num_epochs": 97
+            },
+            {
+              "model.dropout": 0.3874327246125939,
+              "model.hidden_size": 46,
+              "model.non_linearity": "tanh",
+              "model.num_hidden_layers": 1,
+              "model.type": "feedforward",
+              "optimizer.betas.1": 0.8350226376603721,
+              "optimizer.betas.2": 0.9921219974125348,
+              "optimizer.learning_rate": 2.3649877646517155e-06,
+              "optimizer.learning_rate_schedule": "constant",
+              "optimizer.weight_decay": 0.42027139058288787,
+              "training.batch_size": 93,
+              "training.num_epochs": 90
+            },
+            {
+              "model.dropout": 0.312687054798038,
+              "model.hidden_size": 652,
+              "model.non_linearity": "gelu",
+              "model.num_hidden_layers": 1,
+              "model.type": "feedforward",
+              "optimizer.betas.1": 0.8835924114220592,
+              "optimizer.betas.2": 0.9900017447957706,
+              "optimizer.learning_rate": 0.0007236084081690251,
+              "optimizer.learning_rate_schedule": "cosine_warm_restarts",
+              "optimizer.weight_decay": 0.007435272298893469,
+              "training.batch_size": 147,
+              "training.num_epochs": 99
+            },
+            {
+              "model.dropout": 0.15671026136745658,
+              "model.hidden_size": 208,
+              "model.non_linearity": "gelu",
+              "model.num_hidden_layers": 7,
+              "model.type": "feedforward",
+              "optimizer.betas.1": 0.8680020504533357,
+              "optimizer.betas.2": 0.9992940537885522,
+              "optimizer.learning_rate": 3.602585399875248e-07,
+              "optimizer.learning_rate_schedule": "cosine_warm_restarts",
+              "optimizer.weight_decay": 0.006426378713553995,
+              "training.batch_size": 52,
+              "training.num_epochs": 61
+            },
+            {
+              "model.dropout": 0.31418141498955615,
+              "model.hidden_size": 646,
+              "model.non_linearity": "gelu",
+              "model.num_hidden_layers": 1,
+              "model.type": "recurrent",
+              "optimizer.betas.1": 0.8741589156142731,
+              "optimizer.betas.2": 0.9900054990826749,
+              "optimizer.learning_rate": 0.0007052030919756506,
+              "optimizer.learning_rate_schedule": "cosine_warm_restarts",
+              "optimizer.weight_decay": 0.007399303370711006,
+              "training.batch_size": 160,
+              "training.num_epochs": 97
+            },
+            {
+              "model.dropout": 0.2400608319737399,
+              "model.hidden_size": 644,
+              "model.non_linearity": "tanh",
+              "model.num_hidden_layers": 1,
+              "model.type": "recurrent",
+              "optimizer.betas.1": 0.8756284359756832,
+              "optimizer.betas.2": 0.9900156685931254,
+              "optimizer.learning_rate": 8.413803235753127e-06,
+              "optimizer.learning_rate_schedule": "cosine_warm_restarts",
+              "optimizer.weight_decay": 0.007329369017163924,
+              "training.batch_size": 154,
+              "training.num_epochs": 100
+            },
+            {
+              "model.dropout": 0.22835622408931444,
+              "model.hidden_size": 650,
+              "model.non_linearity": "gelu",
+              "model.num_hidden_layers": 1,
+              "model.type": "feedforward",
+              "optimizer.betas.1": 0.8396305315030221,
+              "optimizer.betas.2": 0.9901918627995858,
+              "optimizer.learning_rate": 0.0006785911956506934,
+              "optimizer.learning_rate_schedule": "cosine_warm_restarts",
+              "optimizer.weight_decay": 0.007286721405544614,
+              "training.batch_size": 149,
+              "training.num_epochs": 100
+            },
+            {
+              "model.dropout": 0.19505116517644208,
+              "model.hidden_size": 646,
+              "model.non_linearity": "gelu",
+              "model.num_hidden_layers": 1,
+              "model.type": "recurrent",
+              "optimizer.betas.1": 0.8858215119144106,
+              "optimizer.betas.2": 0.9900018579305376,
+              "optimizer.learning_rate": 0.0006941003730325153,
+              "optimizer.learning_rate_schedule": "cosine_warm_restarts",
+              "optimizer.weight_decay": 0.00734368063313537,
+              "training.batch_size": 169,
+              "training.num_epochs": 97
+            },
+            {
+              "model.dropout": 0.33109182642208485,
+              "model.hidden_size": 602,
+              "model.non_linearity": "gelu",
+              "model.num_hidden_layers": 8,
+              "model.type": "recurrent",
+              "optimizer.betas.1": 0.8870742035577379,
+              "optimizer.betas.2": 0.998249124591336,
+              "optimizer.learning_rate": 6.961643171472606e-08,
+              "optimizer.learning_rate_schedule": "one_cycle",
+              "optimizer.weight_decay": 0.054405847423379665,
+              "training.batch_size": 49,
+              "training.num_epochs": 98
+            },
+            {
+              "model.dropout": 0.23469942318316414,
+              "model.hidden_size": 652,
+              "model.non_linearity": "tanh",
+              "model.num_hidden_layers": 1,
+              "model.type": "recurrent",
+              "optimizer.betas.1": 0.8746494796932326,
+              "optimizer.betas.2": 0.9900291437280839,
+              "optimizer.learning_rate": 8.183370395781074e-06,
+              "optimizer.learning_rate_schedule": "cosine_warm_restarts",
+              "optimizer.weight_decay": 0.00725435698658265,
+              "training.batch_size": 190,
+              "training.num_epochs": 100
+            },
+            {
+              "model.dropout": 0.22969969526751266,
+              "model.hidden_size": 653,
+              "model.non_linearity": "gelu",
+              "model.num_hidden_layers": 1,
+              "model.type": "feedforward",
+              "optimizer.betas.1": 0.8456718009956549,
+              "optimizer.betas.2": 0.9902719724692203,
+              "optimizer.learning_rate": 0.0007141204844960051,
+              "optimizer.learning_rate_schedule": "cosine_warm_restarts",
+              "optimizer.weight_decay": 0.007390087045032188,
+              "training.batch_size": 156,
+              "training.num_epochs": 100
+            },
+            {
+              "model.dropout": 0.2448803697004667,
+              "model.hidden_size": 648,
+              "model.non_linearity": "gelu",
+              "model.num_hidden_layers": 1,
+              "model.type": "recurrent",
+              "optimizer.betas.1": 0.8838296878001145,
+              "optimizer.betas.2": 0.9900007508154829,
+              "optimizer.learning_rate": 0.0006384156980786282,
+              "optimizer.learning_rate_schedule": "cosine_warm_restarts",
+              "optimizer.weight_decay": 0.007315237960440519,
+              "training.batch_size": 163,
+              "training.num_epochs": 99
+            },
+            {
+              "model.dropout": 0.33724111960318814,
+              "model.hidden_size": 646,
+              "model.non_linearity": "gelu",
+              "model.num_hidden_layers": 1,
+              "model.type": "feedforward",
+              "optimizer.betas.1": 0.8865243491848236,
+              "optimizer.betas.2": 0.9900037876373591,
+              "optimizer.learning_rate": 0.0007052030919756506,
+              "optimizer.learning_rate_schedule": "constant",
+              "optimizer.weight_decay": 0.007264100082359028,
+              "training.batch_size": 166,
+              "training.num_epochs": 99
+            },
+            {
+              "model.dropout": 0.31324769585951795,
+              "model.hidden_size": 644,
+              "model.non_linearity": "tanh",
+              "model.num_hidden_layers": 1,
+              "model.type": "feedforward",
+              "optimizer.betas.1": 0.8769622756728304,
+              "optimizer.betas.2": 0.990006239463997,
+              "optimizer.learning_rate": 0.000587031691530561,
+              "optimizer.learning_rate_schedule": "cosine_warm_restarts",
+              "optimizer.weight_decay": 0.007470556320920037,
+              "training.batch_size": 169,
+              "training.num_epochs": 98
+            },
+            {
+              "model.dropout": 0.2350770116901809,
+              "model.hidden_size": 647,
+              "model.non_linearity": "relu",
+              "model.num_hidden_layers": 1,
+              "model.type": "recurrent",
+              "optimizer.betas.1": 0.8756870202495141,
+              "optimizer.betas.2": 0.990012376054384,
+              "optimizer.learning_rate": 0.0006382475433737345,
+              "optimizer.learning_rate_schedule": "cosine_warm_restarts",
+              "optimizer.weight_decay": 0.0073709433882776015,
+              "training.batch_size": 146,
+              "training.num_epochs": 97
+            },
+            {
+              "model.dropout": 0.3446503455776319,
+              "model.hidden_size": 978,
+              "model.non_linearity": "gelu",
+              "model.num_hidden_layers": 4,
+              "model.type": "recurrent",
+              "optimizer.betas.1": 0.8559293125292204,
+              "optimizer.betas.2": 0.9953441192416466,
+              "optimizer.learning_rate": 1.2737621525381881e-06,
+              "optimizer.learning_rate_schedule": "one_cycle",
+              "optimizer.weight_decay": 0.016506424900191576,
+              "training.batch_size": 247,
+              "training.num_epochs": 67
+            },
+            {
+              "model.dropout": 0.04205195582978359,
+              "model.hidden_size": 651,
+              "model.non_linearity": "gelu",
+              "model.num_hidden_layers": 1,
+              "model.type": "recurrent",
+              "optimizer.betas.1": 0.846760777835669,
+              "optimizer.betas.2": 0.9903735832062646,
+              "optimizer.learning_rate": 0.0007558278347583541,
+              "optimizer.learning_rate_schedule": "cosine_warm_restarts",
+              "optimizer.weight_decay": 0.007465697886850355,
+              "training.batch_size": 159,
+              "training.num_epochs": 99
+            },
+            {
+              "model.dropout": 0.27358884607305983,
+              "model.hidden_size": 651,
+              "model.non_linearity": "gelu",
+              "model.num_hidden_layers": 1,
+              "model.type": "recurrent",
+              "optimizer.betas.1": 0.875279126653028,
+              "optimizer.betas.2": 0.9900192593870349,
+              "optimizer.learning_rate": 8.48831455284849e-06,
+              "optimizer.learning_rate_schedule": "cosine_warm_restarts",
+              "optimizer.weight_decay": 0.007288304435603792,
+              "training.batch_size": 169,
+              "training.num_epochs": 99
+            },
+            {
+              "model.dropout": 0.08975008444931515,
+              "model.hidden_size": 1024,
+              "model.non_linearity": "relu",
+              "model.num_hidden_layers": 1,
+              "model.type": "feedforward",
+              "optimizer.betas.1": 0.8810359893117452,
+              "optimizer.betas.2": 0.999171998399211,
+              "optimizer.learning_rate": 8.698305010106927e-08,
+              "optimizer.learning_rate_schedule": "constant",
+              "optimizer.weight_decay": 0.007672331269114539,
+              "training.batch_size": 232,
+              "training.num_epochs": 46
+            },
+            {
+              "model.dropout": 0.18588821093479538,
+              "model.hidden_size": 653,
+              "model.non_linearity": "gelu",
+              "model.num_hidden_layers": 1,
+              "model.type": "feedforward",
+              "optimizer.betas.1": 0.8760573517849418,
+              "optimizer.betas.2": 0.9900019873841001,
+              "optimizer.learning_rate": 0.0006139743910930778,
+              "optimizer.learning_rate_schedule": "cosine_warm_restarts",
+              "optimizer.weight_decay": 0.0072752402010551566,
+              "training.batch_size": 173,
+              "training.num_epochs": 97
+            },
+            {
+              "model.dropout": 0.07530326407761284,
+              "model.hidden_size": 615,
+              "model.non_linearity": "tanh",
+              "model.num_hidden_layers": 2,
+              "model.type": "recurrent",
+              "optimizer.betas.1": 0.8628076078441509,
+              "optimizer.betas.2": 0.9923509362777186,
+              "optimizer.learning_rate": 3.739420256560114e-05,
+              "optimizer.learning_rate_schedule": "constant",
+              "optimizer.weight_decay": 0.013907524953961138,
+              "training.batch_size": 226,
+              "training.num_epochs": 17
+            },
+            {
+              "model.dropout": 0.14029498864241624,
+              "model.hidden_size": 405,
+              "model.non_linearity": "relu",
+              "model.num_hidden_layers": 2,
+              "model.type": "recurrent",
+              "optimizer.betas.1": 0.8606607265811979,
+              "optimizer.betas.2": 0.9911089663937624,
+              "optimizer.learning_rate": 6.113165270789249e-05,
+              "optimizer.learning_rate_schedule": "constant",
+              "optimizer.weight_decay": 0.025942344320301118,
+              "training.batch_size": 227,
+              "training.num_epochs": 38
+            },
+            {
+              "model.dropout": 0.316254487144125,
+              "model.hidden_size": 535,
+              "model.non_linearity": "relu",
+              "model.num_hidden_layers": 6,
+              "model.type": "recurrent",
+              "optimizer.betas.1": 0.8167378963125821,
+              "optimizer.betas.2": 0.9974522813488061,
+              "optimizer.learning_rate": 0.0006783892708005443,
+              "optimizer.learning_rate_schedule": "one_cycle",
+              "optimizer.weight_decay": 0.0080752108069923,
+              "training.batch_size": 81,
+              "training.num_epochs": 70
+            }
+          ]
+        ]
+      ]
+    },
+    "next_bracket": 1
+  }
+}
