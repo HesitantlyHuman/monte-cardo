@@ -92,5 +92,10 @@ fn main() {
     // file.write_all(&network_inputs)
     //     .expect("Failed to write to file");
 
-    data_generation::generate_data(std::path::Path::new("data").to_path_buf(), 64, 32);
+    data_generation::generate_data(
+        std::path::Path::new("data").to_path_buf(),
+        512 * 35,
+        512,
+        true,
+    );
 }

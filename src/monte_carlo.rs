@@ -55,6 +55,9 @@ pub fn simple_markov_rollout(
     num_rollouts: usize,
 ) -> f64 {
     let perspective_player_number = game_state.perspective_player_number;
+    if game_state.player_is_out[perspective_player_number] {
+        return 1.0;
+    }
 
     // Calculate the number of remaining players
     let mut num_players_before_rollout = 0;
@@ -62,6 +65,9 @@ pub fn simple_markov_rollout(
         if *hand_size > 0 {
             num_players_before_rollout += 1;
         }
+    }
+    if num_players_before_rollout < 2 {
+        return 0.0;
     }
 
     // Value accumulated from the rollouts
