@@ -1,101 +1,43 @@
-mod consts;
-mod data_generation;
-mod game;
-mod monte_carlo;
-mod network;
+use std::io::{self, stdout};
 
-fn main() {
-    // let mut current_game_state =
-    //     game::generate_random_initial_game_state(4, consts::DEFAULT_DALMUTI_DECK);
+use crossterm::{
+    event::{self, Event, KeyCode},
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    ExecutableCommand,
+};
+use ratatui::{prelude::*, widgets::*};
 
-    // // Play a simple game
-    // // Display the available moves for the current player, and allow the user to select a move
-    // // using an integer entered in the console.
-    // // Then, update the game state using the selected move and display the new game state.
-    // // Repeat until the game is over.
-    // while current_game_state
-    //     .player_is_out
-    //     .iter()
-    //     .filter(|&&x| !x)
-    //     .count()
-    //     > 1
-    // {
-    //     // Print out all the player's hands
-    //     for (i, player_hand) in current_game_state.player_hands.iter().enumerate() {
-    //         if current_game_state.player_is_out[i] {
-    //             continue;
-    //         }
-    //         println!("Player {}'s hand: {:?}", i, player_hand);
-    //     }
-    //     println!("Top set: {:?}", current_game_state.trick.top_set);
-    //     println!();
+fn main() -> io::Result<()> {
+    enable_raw_mode()?;
+    stdout().execute(EnterAlternateScreen)?;
+    let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 
-    //     let available_moves = game::get_available_moves(
-    //         current_game_state.player_hands[current_game_state.current_player_number],
-    //         current_game_state.trick.top_set,
-    //     );
+    let mut should_quit = false;
+    while !should_quit {
+        terminal.draw(ui)?;
+        should_quit = handle_events()?;
+    }
 
-    //     println!(
-    //         "Player {}'s available moves:",
-    //         current_game_state.current_player_number
-    //     );
-    //     for (i, available_move) in available_moves.iter().enumerate() {
-    //         match available_move {
-    //             game::Move::Play(play) => {
-    //                 println!(
-    //                     "{}. Play {} normal and {} wild of rank {}",
-    //                     i, play.num_non_wilds, play.num_wilds, play.rank
-    //                 );
-    //             }
-    //             game::Move::Pass => {
-    //                 println!("{}. Pass", i);
-    //             }
-    //         }
-    //     }
+    disable_raw_mode()?;
+    stdout().execute(LeaveAlternateScreen)?;
+    Ok(())
+}
 
-    //     println!("{}. Quit", available_moves.len());
+fn handle_events() -> io::Result<bool> {
+    if event::poll(std::time::Duration::from_millis(50))? {
+        if let Event::Key(key) = event::read()? {
+            if key.kind == event::KeyEventKind::Press && key.code == KeyCode::Char('q') {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
+}
 
-    //     let mut input = String::new();
-    //     std::io::stdin()
-    //         .read_line(&mut input)
-    //         .expect("Failed to read line");
-
-    //     let input: usize = input.trim().parse().expect("Please type a number!");
-
-    //     if input == available_moves.len() {
-    //         break;
-    //     }
-
-    //     println!("---------------------------------");
-
-    //     let player_move = &available_moves[input];
-    //     game::update_full_information_game_state(&mut current_game_state, player_move);
-    // }
-
-    // for (i, player_hand) in current_game_state.player_hands.iter().enumerate() {
-    //     if current_game_state.player_is_out[i] {
-    //         continue;
-    //     }
-    //     println!("Player {}'s hand: {:?}", i, player_hand);
-    // }
-
-    // let incomplete_information_game_state = game::create_incomplete_information_game_state(
-    //     current_game_state,
-    //     current_game_state.current_player_number,
-    // );
-    // let network_inputs = network::prepare_network_inputs_from_incomplete_information_state(
-    //     incomplete_information_game_state,
-    //     0.72129163,
-    // );
-    // let mut file =
-    //     std::fs::File::create("network_input_example.bin").expect("Failed to create file");
-    // file.write_all(&network_inputs)
-    //     .expect("Failed to write to file");
-
-    data_generation::generate_data(
-        std::path::Path::new("data").to_path_buf(),
-        512 * 35,
-        512,
-        true,
+fn ui(frame: &mut Frame) {
+    frame.render_widget(
+        Paragraph::new("Hello World!")
+            .block(Block::default().title("Greeting").borders(Borders::ALL)),
+        frame.size(),
     );
 }
