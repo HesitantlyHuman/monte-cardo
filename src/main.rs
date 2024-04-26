@@ -1,11 +1,13 @@
 use std::io::{self, stdout};
 
+mod ui;
+
 use crossterm::{
     event::{self, Event, KeyCode},
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
     ExecutableCommand,
 };
-use ratatui::{prelude::*, widgets::*};
+use ratatui::{layout::Offset, prelude::*};
 
 fn main() -> io::Result<()> {
     enable_raw_mode()?;
@@ -35,9 +37,5 @@ fn handle_events() -> io::Result<bool> {
 }
 
 fn ui(frame: &mut Frame) {
-    frame.render_widget(
-        Paragraph::new("Hello World!")
-            .block(Block::default().title("Greeting").borders(Borders::ALL)),
-        frame.size(),
-    );
+    frame.render_widget(ui::cards::Move::new(5, 3, 8), frame.size());
 }
