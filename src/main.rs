@@ -1,5 +1,9 @@
-use std::io::{self, stdout};
+use std::{
+    io::{self, stdout},
+    vec,
+};
 
+mod consts;
 mod ui;
 
 use crossterm::{
@@ -37,5 +41,10 @@ fn handle_events() -> io::Result<bool> {
 }
 
 fn ui(frame: &mut Frame) {
-    frame.render_widget(ui::cards::Move::new(5, 3, 8), frame.size());
+    let game = ui::cards::Hand::new(
+        [2, 1, 0, 0, 3, 1, 0, 1, 3, 3, 0, 4, 1, 0, 0, 0, 0, 0],
+        [2, 0, 0, 0, 3, 0, 0, 0, 3, 3, 0, 4, 0, 0, 0, 0, 0, 0],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0],
+    );
+    frame.render_widget(game, frame.size());
 }
