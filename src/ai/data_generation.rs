@@ -4,8 +4,8 @@ use rand::Rng;
 use std::io::Write;
 
 use crate::{
+    ai::network::{self, NetworkInputs},
     consts,
-    network::{self, NetworkInputs},
 };
 
 struct BatchWriter {
@@ -69,7 +69,8 @@ fn play_and_write_game(
     num_players: usize,
 ) {
     let rng = &mut rand::thread_rng();
-    let mut current_game_state = crate::game::generate_random_initial_game_state(num_players, deck);
+    let mut current_game_state =
+        crate::ai::game::generate_random_initial_game_state(num_players, deck);
 
     // Iterate through the game until there is only one player left
     while current_game_state
@@ -81,11 +82,11 @@ fn play_and_write_game(
     {
         // Figure out what move the current player should make
         let incomplete_information_game_state =
-            crate::game::create_incomplete_information_game_state(
+            crate::ai::game::create_incomplete_information_game_state(
                 current_game_state,
                 current_game_state.current_player_number,
             );
-        let available_moves = crate::game::get_available_moves(
+        let available_moves = crate::ai::game::get_available_moves(
             incomplete_information_game_state.player_hand,
             incomplete_information_game_state.trick.top_set,
         );
@@ -93,14 +94,14 @@ fn play_and_write_game(
 
         for hypothetical_move in &available_moves {
             let mut hypothetical_game_state = incomplete_information_game_state.clone();
-            crate::game::update_incomplete_information_game_state(
+            crate::ai::game::update_incomplete_information_game_state(
                 &mut hypothetical_game_state,
                 &hypothetical_move,
             );
 
-            let predicted_value = crate::monte_carlo::simple_markov_rollout(
+            let predicted_value = crate::ai::monte_carlo::simple_markov_rollout(
                 hypothetical_game_state,
-                &crate::monte_carlo::BasicHeuristic {},
+                &crate::ai::monte_carlo::BasicHeuristic {},
                 10_000,
             );
             if predicted_value.is_nan() {
@@ -111,7 +112,7 @@ fn play_and_write_game(
             }
 
             let network_inputs =
-                crate::network::prepare_network_inputs_from_incomplete_information_state(
+                crate::ai::network::prepare_network_inputs_from_incomplete_information_state(
                     hypothetical_game_state,
                     predicted_value,
                 );
@@ -138,7 +139,10 @@ fn play_and_write_game(
             }
         }
 
-        crate::game::update_full_information_game_state(&mut current_game_state, &selected_move);
+        crate::ai::game::update_full_information_game_state(
+            &mut current_game_state,
+            &selected_move,
+        );
     }
 }
 

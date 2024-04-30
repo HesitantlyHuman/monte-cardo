@@ -71,9 +71,9 @@ impl Widget for Card {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Move {
-    rank: u8,
-    num_wilds: u8,
-    num_non_wilds: u8,
+    pub rank: u8,
+    pub num_wilds: u8,
+    pub num_non_wilds: u8,
 }
 
 impl Move {
@@ -135,8 +135,8 @@ impl Widget for Move {
 
 #[derive(Debug, Clone)]
 pub struct TrickHistoryEntry {
-    player_name: String,
-    player_move: Move,
+    pub player_name: String,
+    pub player_move: Move,
 }
 
 impl TrickHistoryEntry {
@@ -324,8 +324,9 @@ impl Widget for TrickHistoryEntry {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct TrickHistory {
-    player_moves: Vec<TrickHistoryEntry>,
+    pub player_moves: Vec<TrickHistoryEntry>,
 }
 
 impl TrickHistory {
@@ -385,11 +386,12 @@ impl Widget for Hand {
             num_cards += num_card_of_rank;
         }
 
-        let buffer_width = 5 * num_cards as u16 + 2;
+        let buffer_width = 5 * num_cards as u16 + 4;
         let buffer_height = 6;
         let mut buffer = Buffer::empty(Rect::new(0, 0, buffer_width, buffer_height));
 
         // Now, step through and render the cards
+        let mut end_on_selected = false;
         let mut current_x = 0;
         for (rank, num_cards, num_active, num_selected) in self
             .cards
@@ -412,11 +414,15 @@ impl Widget for Hand {
             for _ in 0..num_inactive {
                 Card::new(rank as u8, true).render(Rect::new(current_x, 1, 7, 5), &mut buffer);
                 current_x += 3;
+
+                end_on_selected = false;
             }
 
             for _ in 0..num_unselected_and_active {
                 Card::new(rank as u8, false).render(Rect::new(current_x, 1, 7, 5), &mut buffer);
                 current_x += 3;
+
+                end_on_selected = false;
             }
 
             if num_selected_and_active > 0 && current_x != 0 {
@@ -426,6 +432,8 @@ impl Widget for Hand {
             for _ in 0..num_selected_and_active {
                 Card::new(rank as u8, false).render(Rect::new(current_x, 0, 7, 5), &mut buffer);
                 current_x += 3;
+
+                end_on_selected = true;
             }
 
             if num_selected_and_active > 0 {
@@ -434,7 +442,11 @@ impl Widget for Hand {
         }
 
         // Now, we want to render the buffer to the main buffer such that we center the buffer in the given area
-        let final_width = current_x + 4;
+        let final_width = if end_on_selected {
+            current_x + 2
+        } else {
+            current_x + 4
+        };
         let final_height = 6;
 
         let x_start = if area.width >= final_width {

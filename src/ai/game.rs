@@ -4,13 +4,23 @@ use rand::Rng;
 
 type PlayerNumber = usize;
 type CardRank = usize;
-type Hand = [u16; consts::MAX_CARD_ORDINALITY];
+type Hand = [u8; consts::MAX_CARD_ORDINALITY];
 
 #[derive(Debug, Clone, Copy)]
 pub struct Play {
     pub rank: CardRank,
-    pub num_non_wilds: u16,
-    pub num_wilds: u16,
+    pub num_non_wilds: u8,
+    pub num_wilds: u8,
+}
+
+impl Play {
+    pub fn new(rank: CardRank, num_wilds: u8, num_non_wilds: u8) -> Play {
+        Play {
+            rank,
+            num_non_wilds,
+            num_wilds,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -23,7 +33,17 @@ pub enum Move {
 pub struct TopSet {
     pub player: PlayerNumber,
     pub rank: CardRank,
-    pub number: u16,
+    pub number: u8,
+}
+
+impl TopSet {
+    pub fn new(player: PlayerNumber, rank: CardRank, number: u8) -> TopSet {
+        TopSet {
+            player,
+            rank,
+            number,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -46,7 +66,7 @@ pub struct IncompleteInformationGameState {
     pub current_player_number: PlayerNumber,
     pub perspective_player_number: PlayerNumber,
     pub player_hand: Hand,
-    pub opponent_cards: [u16; consts::MAX_CARD_ORDINALITY],
+    pub opponent_cards: [u8; consts::MAX_CARD_ORDINALITY],
     pub player_is_out: [bool; consts::MAX_PLAYERS],
     pub hand_sizes: [u16; consts::MAX_PLAYERS],
     pub trick: Trick,
@@ -57,7 +77,7 @@ impl IncompleteInformationGameState {
         current_player_number: PlayerNumber,
         perspective_player_number: PlayerNumber,
         player_hand: Hand,
-        opponent_cards: [u16; consts::MAX_CARD_ORDINALITY],
+        opponent_cards: [u8; consts::MAX_CARD_ORDINALITY],
         player_is_out: [bool; consts::MAX_PLAYERS],
         hand_sizes: [u16; consts::MAX_PLAYERS],
         trick: Trick,
@@ -98,6 +118,19 @@ impl FullInformationGameState {
     }
 }
 
+pub fn get_next_active_player(
+    player_is_out: &[bool; consts::MAX_PLAYERS],
+    current_player_number: PlayerNumber,
+) -> Result<PlayerNumber, &'static str> {
+    for i in 1..consts::MAX_PLAYERS {
+        let next_player_number = (current_player_number + i) % consts::MAX_PLAYERS;
+        if !player_is_out[next_player_number] {
+            return Ok(next_player_number);
+        }
+    }
+    Err("No active players left")
+}
+
 pub fn update_full_information_game_state(
     game_state: &mut FullInformationGameState,
     player_move: &Move,
@@ -119,7 +152,7 @@ pub fn update_full_information_game_state(
             // Check if the player is out
             if game_state.player_hands[game_state.current_player_number]
                 .iter()
-                .sum::<u16>()
+                .sum::<u8>()
                 == 0
             {
                 game_state.player_is_out[game_state.current_player_number] = true;
@@ -196,14 +229,11 @@ pub fn update_full_information_game_state(
                 }
             } else {
                 // Update the player number
-                for i in 1..consts::MAX_PLAYERS {
-                    let next_player_number =
-                        (game_state.current_player_number + i) % consts::MAX_PLAYERS;
-                    if !game_state.player_is_out[next_player_number] {
-                        game_state.current_player_number = next_player_number;
-                        break;
-                    }
-                }
+                game_state.current_player_number = get_next_active_player(
+                    &game_state.player_is_out,
+                    game_state.current_player_number,
+                )
+                .unwrap();
             }
         }
     }
@@ -227,7 +257,7 @@ pub fn update_incomplete_information_game_state(
 
             // Update hand sizes
             game_state.hand_sizes[game_state.current_player_number] -=
-                play.num_non_wilds + play.num_wilds;
+                (play.num_non_wilds + play.num_wilds) as u16;
 
             // Update the top set
             game_state.trick.top_set = Some(TopSet {
@@ -312,14 +342,11 @@ pub fn update_incomplete_information_game_state(
                 }
             } else {
                 // Update the player number
-                for i in 1..consts::MAX_PLAYERS {
-                    let next_player_number =
-                        (game_state.current_player_number + i) % consts::MAX_PLAYERS;
-                    if !game_state.player_is_out[next_player_number] {
-                        game_state.current_player_number = next_player_number;
-                        break;
-                    }
-                }
+                game_state.current_player_number = get_next_active_player(
+                    &game_state.player_is_out,
+                    game_state.current_player_number,
+                )
+                .unwrap();
             }
         }
     }
@@ -340,8 +367,8 @@ pub fn get_available_moves(hand: Hand, top_set: Option<TopSet>) -> Vec<Move> {
                         if num_wilds_needed <= num_wilds {
                             moves.push(Move::Play(Play {
                                 rank: i,
-                                num_non_wilds: num_non_wilds_played as u16,
-                                num_wilds: num_wilds_needed as u16,
+                                num_non_wilds: num_non_wilds_played,
+                                num_wilds: num_wilds_needed,
                             }));
                         } else {
                             break;
@@ -433,7 +460,7 @@ pub fn generate_random_initial_game_state(
 
     let mut player_is_out = [true; consts::MAX_PLAYERS];
     for (i, hand) in hands.iter().enumerate() {
-        player_is_out[i] = hand.iter().sum::<u16>() == 0;
+        player_is_out[i] = hand.iter().sum::<u8>() == 0;
     }
 
     FullInformationGameState::new(0, array_hands, player_is_out, trick)
@@ -508,9 +535,9 @@ pub fn create_incomplete_information_game_state(
     for i in 0..full_information_game_state.player_hands.len() {
         let hand = &full_information_game_state.player_hands[i];
         for j in 0..consts::MAX_CARD_ORDINALITY {
-            hand_sizes[i] += hand[j];
+            hand_sizes[i] += hand[j] as u16;
             if i != perspective_player_number {
-                opponent_cards[j] += hand[j];
+                opponent_cards[j] += hand[j]
             }
         }
     }

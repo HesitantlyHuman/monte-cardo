@@ -1,4 +1,4 @@
-use crate::game;
+use crate::ai::game;
 
 use rand::Rng;
 
@@ -134,8 +134,12 @@ pub fn simple_markov_rollout(
 
         // Calculate the number of remaining players
         let mut num_players_after_rollout = 0;
-        for hand_size in hypothetical_game_state.player_hands {
-            if hand_size.iter().sum::<u16>() > 0 {
+        for player_hand in hypothetical_game_state.player_hands {
+            let mut hand_size = 0;
+            for card_count in player_hand {
+                hand_size += card_count as u16;
+            }
+            if hand_size > 0 {
                 num_players_after_rollout += 1;
             }
         }
