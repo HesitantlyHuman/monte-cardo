@@ -9,9 +9,6 @@ fn main() {
     let random_heuristic = ai::monte_carlo::RandomHeuristic {};
     let heuristics: Vec<&dyn Heuristic> = vec![&basic_heuristic, &random_heuristic];
 
-    let results = ai::tourney::run_ai_game(&heuristics);
-
-    for (heuristic, score) in results.iter().enumerate() {
-        println!("Heuristic {:?}: {}", heuristics[heuristic], score);
-    }
+    let results = ai::tourney::run_tourney(&heuristics, 100, true);
+    println!("{:?}", results);
 }

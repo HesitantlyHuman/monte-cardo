@@ -1,8 +1,7 @@
-use core::num;
-
+use kdam::{tqdm, BarExt};
 use rand::Rng;
 
-use crate::ai::{game, monte_carlo::Heuristic};
+use crate::ai::monte_carlo::Heuristic;
 
 // For now, only test them playing Dalmuti
 pub fn run_ai_game(heuristics: &Vec<&dyn Heuristic>) -> Vec<f32> {
@@ -53,21 +52,23 @@ pub fn run_ai_game(heuristics: &Vec<&dyn Heuristic>) -> Vec<f32> {
     );
     let mut out_order = Vec::with_capacity(num_players);
     while game_state.player_is_out.iter().filter(|&&x| !x).count() > 1 {
+        let player_in_question = game_state.current_player_number;
         let player_perspective_state = crate::ai::game::create_incomplete_information_game_state(
             game_state,
-            game_state.current_player_number,
+            player_in_question,
         );
         let chosen_move = crate::ai::monte_carlo::get_best_move(
             player_perspective_state,
-            heuristics[player_heuristics[game_state.current_player_number]],
+            heuristics[player_heuristics[player_in_question]],
             10_000,
         );
         crate::ai::game::update_full_information_game_state(&mut game_state, &chosen_move);
 
-        if game_state.player_is_out[game_state.current_player_number] {
-            out_order.push(game_state.current_player_number);
+        if game_state.player_is_out[player_in_question] {
+            out_order.push(player_in_question);
         }
     }
+
     // Push the remaining player to the out_order
     for (player_number, &is_out) in game_state.player_is_out.iter().enumerate() {
         if !is_out {
@@ -98,4 +99,23 @@ pub fn run_ai_game(heuristics: &Vec<&dyn Heuristic>) -> Vec<f32> {
     }
 
     normalized_scores
+}
+
+pub fn run_tourney(heuristics: &Vec<&dyn Heuristic>, num_games: usize, verbose: bool) -> Vec<f32> {
+    let mut progress_bar = tqdm!(
+        total = num_games,
+        desc = "Playing games",
+        disable = !verbose
+    );
+    progress_bar.refresh().unwrap();
+    let mut total_scores = vec![0.0; heuristics.len()];
+    for _ in 0..num_games {
+        let scores = run_ai_game(heuristics);
+        progress_bar.update(1).unwrap();
+        for (heuristic_idx, score) in scores.iter().enumerate() {
+            total_scores[heuristic_idx] += score;
+        }
+    }
+
+    total_scores.iter().map(|&x| x / num_games as f32).collect()
 }
