@@ -1,15 +1,123 @@
+use std::fmt::Debug;
+
 use crate::ai::game;
 
 use rand::Rng;
 
-pub trait Heuristic {
+pub trait Heuristic: std::fmt::Debug {
     fn estimate_state_value(&self, game_state: game::IncompleteInformationGameState) -> f32;
 }
 
 pub struct BasicHeuristic {}
 
+impl Debug for BasicHeuristic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "BasicHeuristic")
+    }
+}
+
 impl Heuristic for BasicHeuristic {
     fn estimate_state_value(&self, game_state: game::IncompleteInformationGameState) -> f32 {
+        let mut max_player_set_size = [0; crate::consts::MAX_CARD_ORDINALITY];
+        let mut max_beating_set_size = [0; crate::consts::MAX_CARD_ORDINALITY];
+        max_player_set_size[1] = game_state.player_hand[1] + game_state.player_hand[0];
+        for i in 2..crate::consts::MAX_CARD_ORDINALITY {
+            max_beating_set_size[i] = (game_state.opponent_cards[i - 1]
+                + game_state.opponent_cards[0])
+                .max(max_beating_set_size[i - 2]);
+            max_player_set_size[i] = game_state.player_hand[i] + game_state.player_hand[0];
+        }
+
+        let will_win_current_trick = match game_state.trick.top_set {
+            Some(top_set) => {
+                top_set.player == game_state.perspective_player_number
+                    && max_beating_set_size[top_set.rank] < top_set.number
+            }
+            None => false,
+        };
+
+        let mut num_unbeatable_playable_sets = 0;
+        let mut num_unbeatable_unplayable_sets = 0;
+        let mut num_beatable_playable_sets = 0;
+        let mut num_beatable_unplayable_sets = 0;
+        for i in 1..crate::consts::MAX_CARD_ORDINALITY {
+            if game_state.player_hand[i] == 0 {
+                continue;
+            }
+            let playable = will_win_current_trick
+                || match game_state.trick.top_set {
+                    Some(top_set) => {
+                        top_set.rank < i
+                            && (max_player_set_size[i] == top_set.number
+                                || game_state.player_hand[i] == top_set.number)
+                    }
+                    None => false,
+                };
+            let unbeatable = max_beating_set_size[i] < max_player_set_size[i];
+            if unbeatable {
+                if playable {
+                    num_unbeatable_playable_sets += 1;
+                } else {
+                    num_unbeatable_unplayable_sets += 1;
+                }
+            } else {
+                if playable {
+                    num_beatable_playable_sets += 1;
+                } else {
+                    num_beatable_unplayable_sets += 1;
+                }
+            }
+        }
+
+        // We want at least 1 unbeatable playable set
+        // We can only have 1 beatable unplayable set
+        // We would like to minimize the number of beatable playable sets
+        // relative to the number of beatable playable sets our opponents
+        // may have
+        let mut min_opponent_hand_size = 500;
+        for hand_size in &game_state.hand_sizes {
+            if *hand_size == 0 {
+                continue;
+            }
+            if *hand_size < min_opponent_hand_size {
+                min_opponent_hand_size = *hand_size;
+            }
+        }
+        let estimated_opponent_beatable_playable_sets =
+            (((min_opponent_hand_size / 2) as f32) - 1.0).max(0.5);
+
+        let trump_factor = 0.5
+            * if num_unbeatable_playable_sets > 0 {
+                0.85 + 0.15 * (num_unbeatable_playable_sets as f32 / 4.0)
+            } else {
+                0.1 - 0.1 * (num_unbeatable_unplayable_sets as f32 / 4.0)
+            };
+        let beatable_playable_factor = 0.2
+            * (num_beatable_playable_sets as f32
+                / estimated_opponent_beatable_playable_sets as f32);
+        let beatable_factor = 0.5
+            * if num_beatable_unplayable_sets > 1 {
+                0.2
+            } else if num_beatable_unplayable_sets == 0 {
+                0.8
+            } else {
+                0.7
+            };
+
+        trump_factor + beatable_factor - beatable_playable_factor
+    }
+}
+
+pub struct RandomHeuristic {}
+
+impl Debug for RandomHeuristic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "RandomHeuristic")
+    }
+}
+
+impl Heuristic for RandomHeuristic {
+    fn estimate_state_value(&self, _game_state: game::IncompleteInformationGameState) -> f32 {
         0.5
     }
 }
@@ -103,8 +211,19 @@ pub fn simple_markov_rollout(
 
             // Use our heuristic to estimate the value of each of these moves
             let mut move_values = Vec::new();
-            for _ in &available_moves {
-                move_values.push(0.5);
+            for potential_move in &available_moves {
+                let mut resulting_hypothetical_game_state = hypothetical_game_state.clone();
+                game::update_full_information_game_state(
+                    &mut resulting_hypothetical_game_state,
+                    potential_move,
+                );
+                let rollout_player_perspective_game_state =
+                    game::create_incomplete_information_game_state(
+                        resulting_hypothetical_game_state,
+                        perspective_player_number,
+                    );
+                move_values
+                    .push(heuristic.estimate_state_value(rollout_player_perspective_game_state));
             }
 
             // Normalize the move values
