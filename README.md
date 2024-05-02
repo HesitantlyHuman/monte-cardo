@@ -13,11 +13,13 @@ A model will be trained against the MCTS to improve the heuristic.
 [x] Validate the rust generated data and write a loader for it
 [ ] Write the model and try training on small subset of data to validate and debug
 [ ] Add checkpointing and hyperparameter search to model training?
-[ ] Write a console application to play against the model and/or use it for outside play
+[x] Write a console application to play against the model
+[ ] Update the console application to allow for giving suggestions for playing an outside game
 [ ] Test the current lame heuristic with the playing, to validate that it does make reasonable decisions
 [ ] setup.py
 [ ] auto validation to select best heuristic
 [ ] Get rust to handle the python environment and create a command line interface which does everything
+[ ] Change all references of ordinality to rank for consistent terminology
 
 ## Random installed things
 conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
