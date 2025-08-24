@@ -2,10 +2,14 @@ use std::fmt::Debug;
 
 use crate::ai::game;
 
-use rand::Rng;
+use rand::{rngs::ThreadRng, Rng};
 
 pub trait Heuristic: std::fmt::Debug {
-    fn estimate_state_value(&self, game_state: game::IncompleteInformationGameState) -> f32;
+    fn estimate_state_value(
+        &self,
+        game_state: game::IncompleteInformationGameState,
+        rng: &mut ThreadRng,
+    ) -> f32;
 }
 
 pub struct BasicHeuristic {}
@@ -17,7 +21,11 @@ impl Debug for BasicHeuristic {
 }
 
 impl Heuristic for BasicHeuristic {
-    fn estimate_state_value(&self, game_state: game::IncompleteInformationGameState) -> f32 {
+    fn estimate_state_value(
+        &self,
+        game_state: game::IncompleteInformationGameState,
+        rng: &mut ThreadRng,
+    ) -> f32 {
         let mut max_player_set_size = [0; crate::consts::MAX_CARD_ORDINALITY];
         let mut max_beating_set_size = [0; crate::consts::MAX_CARD_ORDINALITY];
         max_player_set_size[1] = game_state.player_hand[1] + game_state.player_hand[0];
@@ -86,7 +94,7 @@ impl Heuristic for BasicHeuristic {
         let estimated_opponent_beatable_playable_sets =
             (((min_opponent_hand_size / 2) as f32) - 1.0).max(0.5);
 
-        let trump_factor = 0.5
+        let trump_factor = 0.65
             * if num_unbeatable_playable_sets > 0 {
                 0.85 + 0.15 * (num_unbeatable_playable_sets as f32 / 4.0)
             } else {
@@ -104,7 +112,15 @@ impl Heuristic for BasicHeuristic {
                 0.7
             };
 
+        let min_hand_size = game_state.hand_sizes.iter().min().unwrap();
+        let max_hand_size = game_state.hand_sizes.iter().max().unwrap();
+        let hand_size_factor = 0.1
+            * (game_state.hand_sizes[game_state.perspective_player_number] - min_hand_size) as f32
+            / (max_hand_size - min_hand_size) as f32;
+
         trump_factor + beatable_factor - beatable_playable_factor
+            + hand_size_factor
+            + rng.gen_range(0.0..0.15)
     }
 }
 
@@ -117,8 +133,12 @@ impl Debug for RandomHeuristic {
 }
 
 impl Heuristic for RandomHeuristic {
-    fn estimate_state_value(&self, _game_state: game::IncompleteInformationGameState) -> f32 {
-        0.5
+    fn estimate_state_value(
+        &self,
+        _game_state: game::IncompleteInformationGameState,
+        rng: &mut ThreadRng,
+    ) -> f32 {
+        rng.gen_range(0.0..1.0)
     }
 }
 
@@ -210,7 +230,9 @@ pub fn simple_markov_rollout(
             );
 
             // Use our heuristic to estimate the value of each of these moves
-            let mut move_values = Vec::new();
+            let mut best_move = None;
+            let mut best_move_value = -1000.0;
+
             for potential_move in &available_moves {
                 let mut resulting_hypothetical_game_state = hypothetical_game_state.clone();
                 game::update_full_information_game_state(
@@ -222,30 +244,29 @@ pub fn simple_markov_rollout(
                         resulting_hypothetical_game_state,
                         perspective_player_number,
                     );
-                move_values
-                    .push(heuristic.estimate_state_value(rollout_player_perspective_game_state));
-            }
 
-            // Normalize the move values
-            let move_values_sum = move_values.iter().sum::<f32>();
-            for move_value in &mut move_values {
-                *move_value /= move_values_sum;
-            }
+                let estimated_value =
+                    heuristic.estimate_state_value(rollout_player_perspective_game_state, &mut rng);
 
-            // Now use the heuristic values to randomly select a move
-            let random_value = rng.gen_range(0.0..1.0);
-            let mut cumulative_value = 0.0;
-            let mut player_move = available_moves[0];
-            for (i, move_value) in move_values.iter().enumerate() {
-                cumulative_value += move_value;
-                if random_value <= cumulative_value {
-                    player_move = available_moves[i];
-                    break;
+                match best_move {
+                    None => {
+                        best_move = Some(potential_move);
+                        best_move_value = estimated_value;
+                    }
+                    Some(_) => {
+                        if estimated_value > best_move_value {
+                            best_move = Some(potential_move);
+                            best_move_value = estimated_value;
+                        }
+                    }
                 }
             }
 
             // Update the game state
-            game::update_full_information_game_state(&mut hypothetical_game_state, &player_move);
+            game::update_full_information_game_state(
+                &mut hypothetical_game_state,
+                &best_move.unwrap(),
+            );
         }
 
         // Now we want to update the value sum based on the final state of the game

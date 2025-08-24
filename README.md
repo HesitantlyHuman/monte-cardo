@@ -75,3 +75,15 @@ What the UI needs:
 	- Indication of whose turn it is
 	- A thinking indicator when the AI is making its turn
 	- A suggested move when it is your turn
+
+# Random Thoughts
+- Train a model to generate hypotheticals for the MCTS to explore
+  - Would the value of the current state be the minimum or the mean of the hypotheticals?
+    - If we are talking about Nash equilibria, then the value of the current state would be the minimum of the hypotheticals, assuming that the outcome of the hypotheticals is not worse than optimal play. You would almost want to do multiple rollouts for each hypothetical to get a better idea of the value of the hypothetical, and then take the minimum of the hypotheticals.
+- I like the ideas in the DeepNash paper, where they add an additional condition that the model should remain similar to its past iterations.
+
+
+# New notes / A better approach?
+- We should be using min-max at the top of the tree, and use MCTS to improve our heuristics. MCTS does a poor job of simulating opponents who are using optimal strategy, which does not seem to do well in this type of game. (I wonder if you could formalize this notion of where MCTS would excel and where it would not)
+- The other issue is that we are treating the hypothetical states as equally likely, when they are not. However, if we operate under the worst case scenario assumption, then this is less of a problem. That is because by considering situations which are bad for us with higher weight, we are implicitly assuming perfect play on the part of our opponents. This may not be optimal against weak opponents, and is more pessimistic that it needs to be, however.
+- **See photo in phone for diagram of new approach, mixing min-max and MCTS**

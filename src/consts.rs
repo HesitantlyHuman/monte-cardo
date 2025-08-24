@@ -1,5 +1,5 @@
 // Lets have the max number of players be 16. And the minimum is obviously 2.
-pub const MAX_PLAYERS: usize = 18;
+pub const MAX_PLAYERS: usize = 16;
 
 // Maximum different ranks the cards can have
 pub const MAX_CARD_ORDINALITY: usize = 18;

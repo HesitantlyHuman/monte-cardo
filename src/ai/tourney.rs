@@ -20,6 +20,7 @@ pub fn run_ai_game(heuristics: &Vec<&dyn Heuristic>) -> Vec<f32> {
         let player_number = player_numbers.remove(random_player_index);
         player_heuristics[player_number] = heuristic_num;
     }
+
     // Fill in the rest of the players with random heuristics
     for player_number in player_numbers {
         let random_heuristic_index = rng.gen_range(0..heuristics.len());
@@ -60,7 +61,7 @@ pub fn run_ai_game(heuristics: &Vec<&dyn Heuristic>) -> Vec<f32> {
         let chosen_move = crate::ai::monte_carlo::get_best_move(
             player_perspective_state,
             heuristics[player_heuristics[player_in_question]],
-            10_000,
+            1_000,
         );
         crate::ai::game::update_full_information_game_state(&mut game_state, &chosen_move);
 
