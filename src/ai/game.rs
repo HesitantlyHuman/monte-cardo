@@ -2,7 +2,7 @@ use crate::consts;
 
 use rand::Rng;
 
-type PlayerNumber = usize;
+pub type PlayerNumber = usize;
 type CardRank = usize;
 type Hand = [u8; consts::MAX_CARD_ORDINALITY];
 
@@ -23,6 +23,7 @@ impl Play {
     }
 }
 
+// TODO: Create move to id and id to move functions. They need to be fast
 #[derive(Debug, Clone, Copy)]
 pub enum Move {
     Play(Play),
@@ -94,6 +95,7 @@ impl IncompleteInformationGameState {
     }
 }
 
+// TODO: Maybe add a tracker for the number of players so that we don't have to iterate as much
 #[derive(Debug, Clone, Copy)]
 pub struct FullInformationGameState {
     pub current_player_number: PlayerNumber,
