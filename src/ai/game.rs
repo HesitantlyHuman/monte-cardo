@@ -4,7 +4,7 @@ use rand::Rng;
 
 pub type PlayerNumber = usize;
 type CardRank = usize;
-type Hand = [u8; consts::MAX_CARD_ORDINALITY];
+pub type Hand = [u8; consts::MAX_CARD_ORDINALITY];
 
 #[derive(Debug, Clone, Copy)]
 pub struct Play {
@@ -30,7 +30,7 @@ pub enum Move {
     Pass,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Hash)]
 pub struct TopSet {
     pub player: PlayerNumber,
     pub rank: CardRank,
@@ -47,7 +47,7 @@ impl TopSet {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Hash)]
 pub struct Trick {
     pub top_set: Option<TopSet>,
     pub has_passed: [bool; consts::MAX_PLAYERS],
