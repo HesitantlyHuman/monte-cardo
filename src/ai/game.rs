@@ -30,7 +30,7 @@ pub enum Move {
     Pass,
 }
 
-#[derive(Debug, Clone, Copy, Hash)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct TopSet {
     pub player: PlayerNumber,
     pub rank: CardRank,
@@ -47,7 +47,7 @@ impl TopSet {
     }
 }
 
-#[derive(Debug, Clone, Copy, Hash)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct Trick {
     pub top_set: Option<TopSet>,
     pub has_passed: [bool; consts::MAX_PLAYERS],
