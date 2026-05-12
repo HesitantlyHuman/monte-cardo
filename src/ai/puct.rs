@@ -2,14 +2,14 @@ use rand;
 use rand_distr::{Distribution, WeightedAliasIndex};
 use std::collections::HashMap;
 
-use crate::ai::game::{self, FullInformationGameState};
+use crate::ai::game::{self, FullInformationGameState, IncompleteInformationGameState};
 use crate::consts;
 
 const NUM_ACTIONS: usize = 1 + consts::MAX_CARD_NUMBER * consts::MAX_CARD_ORDINALITY * 2; // The assumption is that we only consider playing the minimum number of wilds. Using all the wilds and all of the cards the max you could play in one go is consts::MAX_CARD_NUMBER * 2
 
 type PlayerValues = [f32; consts::MAX_PLAYERS];
 type ActionValueMatrix = [PlayerValues; NUM_ACTIONS];
-type ActionProbabilties = [f32; NUM_ACTIONS];
+type ActionProbabilities = [f32; NUM_ACTIONS];
 type ActionMask = [bool; NUM_ACTIONS];
 type MoveID = usize;
 
@@ -41,14 +41,52 @@ struct SearchContext<H: ActionPriorHeuristic> {
 }
 
 trait ActionPriorHeuristic {
-    fn action_priors(&mut self, state: NormalizedIncompleteInformation) -> ActionProbabilties;
+    fn action_priors(&mut self, state: NormalizedIncompleteInformation) -> ActionProbabilities;
 }
 
 fn value_to_probabilities(
     action_value_matrix: ActionValueMatrix,
+    valid_action_mask: ActionMask,
     player: game::PlayerNumber,
-) -> ActionProbabilties {
-    [0.0; NUM_ACTIONS]
+    temperature: f32,
+) -> ActionProbabilities {
+    debug_assert!(temperature > 0.0);
+
+    let mut max_value = f32::NEG_INFINITY;
+
+    for action_id in 0..NUM_ACTIONS {
+        if valid_action_mask[action_id] {
+            max_value = max_value.max(action_value_matrix[action_id][player]);
+        }
+    }
+
+    debug_assert!(
+        max_value.is_finite(),
+        "Cannot create action probabilities with no valid actions"
+    );
+
+    let mut probabilities = [0.0; NUM_ACTIONS];
+    let mut total = 0.0;
+
+    for action_id in 0..NUM_ACTIONS {
+        if !valid_action_mask[action_id] {
+            continue;
+        }
+
+        let scaled = (action_value_matrix[action_id][player] - max_value) / temperature;
+        let weight = scaled.exp();
+
+        probabilities[action_id] = weight;
+        total += weight;
+    }
+
+    debug_assert!(total > 0.0 && total.is_finite());
+
+    for action_id in 0..NUM_ACTIONS {
+        probabilities[action_id] /= total;
+    }
+
+    probabilities
 }
 
 fn move_to_id(game_move: game::Move) -> MoveID {
@@ -90,15 +128,6 @@ fn id_to_move(id: MoveID, hand: game::Hand) -> game::Move {
     });
 }
 
-// TODO: This probably needs to know the valid actions
-fn get_best_action(action_value_matrix: ActionValueMatrix) -> usize {
-    // let mut best_action = None;
-    let mut best_value = f32::NEG_INFINITY;
-
-    for action_id in 0..NUM_ACTIONS {}
-    0
-}
-
 fn choose_action<H: ActionPriorHeuristic>(
     incomplete_information_state: game::IncompleteInformationGameState,
     heuristic: &mut H,
@@ -110,20 +139,71 @@ fn full_tree_evaluation<H: ActionPriorHeuristic>(
     incomplete_information_state: game::IncompleteInformationGameState,
     search_context: &mut SearchContext<H>,
     current_depth: usize,
-) -> ActionValueMatrix {
-    let possible_worlds_and_probs = get_possible_worlds(incomplete_information_state);
+) -> (ActionValueMatrix, ActionMask) {
+    let possible_worlds_and_probs = get_possible_worlds(
+        incomplete_information_state,
+        search_context.config.num_worlds,
+    );
 
     let mut action_value_matrix = [[0.0; consts::MAX_PLAYERS]; NUM_ACTIONS];
+    let valid_action_matrix = create_valid_action_mask(incomplete_information_state);
 
     for (world, probability) in possible_worlds_and_probs {
-        for action_id in 0..NUM_ACTIONS {}
+        for action_id in 0..NUM_ACTIONS {
+            if !valid_action_matrix[action_id] {
+                continue;
+            }
+
+            let mut hypothetical_world = world.clone();
+            let player_hand =
+                hypothetical_world.player_hands[hypothetical_world.current_player_number];
+            match update_world(&mut hypothetical_world, id_to_move(action_id, player_hand)) {
+                Some(player_values) => {
+                    // Just directly update the action value matrix
+                    for player_id in 0..consts::MAX_PLAYERS {
+                        action_value_matrix[action_id][player_id] +=
+                            probability * player_values[player_id];
+                    }
+                }
+                None => {
+                    // Calculate the value matrix from this position
+                    let current_player_information = game::create_incomplete_information_game_state(
+                        hypothetical_world,
+                        hypothetical_world.current_player_number,
+                    );
+                    let (next_value_matrix, valid_next_actions) =
+                        if current_depth >= search_context.config.full_tree_depth {
+                            puct_evalution(current_player_information, search_context)
+                        } else {
+                            full_tree_evaluation(
+                                current_player_information,
+                                search_context,
+                                current_depth + 1,
+                            )
+                        };
+                    // Update the value matrix according to the likelihood of
+                    // the player making various decisions, as estimated by the
+                    // temperature.
+                    let probabilities = value_to_probabilities(
+                        next_value_matrix,
+                        valid_next_actions,
+                        hypothetical_world.current_player_number,
+                        search_context.config.temperature,
+                    );
+                    for next_action_id in 0..NUM_ACTIONS {
+                        for player_id in 0..consts::MAX_PLAYERS {
+                            action_value_matrix[action_id][player_id] += next_value_matrix
+                                [next_action_id][player_id]
+                                * probabilities[next_action_id]
+                                * probability;
+                        }
+                    }
+                }
+            }
+        }
     }
 
-    debug_assert_eq!(
-        incomplete_information_state.current_player_number,
-        incomplete_information_state.perspective_player_number
-    );
-    [[0.0; consts::MAX_PLAYERS]; NUM_ACTIONS]
+    return (action_value_matrix, valid_action_matrix);
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
@@ -137,12 +217,11 @@ struct NormalizedIncompleteInformation {
 #[derive(Debug, Clone)]
 struct TrainingExample {
     state: NormalizedIncompleteInformation,
-    action_probabilities: ActionProbabilties,
+    action_probabilities: ActionProbabilities,
     action_mask: ActionMask,
 }
 
 // TODO: this needs to rotate the incomplete information state so that we have a canonical representation (0 is the current player)
-// We also should rename this, because that output will be the input for the heuristic
 fn normalize_incomplete_information_state(
     incomplete_information_state: game::IncompleteInformationGameState,
 ) -> NormalizedIncompleteInformation {
@@ -156,13 +235,13 @@ fn normalize_incomplete_information_state(
 
 struct PUCTNode {
     action_mask: ActionMask,
-    action_priors: ActionProbabilties,
+    action_priors: ActionProbabilities,
     visit_counts: [u32; NUM_ACTIONS],
     accumulated_values: ActionValueMatrix,
 }
 
 impl PUCTNode {
-    fn new(action_mask: ActionMask, action_priors: ActionProbabilties) -> Self {
+    fn new(action_mask: ActionMask, action_priors: ActionProbabilities) -> Self {
         PUCTNode {
             action_mask: action_mask,
             action_priors: action_priors,
@@ -173,7 +252,6 @@ impl PUCTNode {
 }
 
 fn puct_score(node: &PUCTNode, action_id: usize, player_id: usize, exploration_factor: f32) -> f32 {
-    // Considered from the perspective of 0 being the active player
     let n_action_taken = node.visit_counts[action_id];
     let n_times_at_node: u32 = node.visit_counts.iter().sum();
 
@@ -211,13 +289,11 @@ fn select_puct_action(node: &PUCTNode, player_id: usize, exploration_factor: f32
     best_action.expect("PUCTNode has no valid actions!")
 }
 
-fn create_valid_action_mask(
-    normalized_information_state: NormalizedIncompleteInformation,
-) -> ActionMask {
+fn create_valid_action_mask(incomplete_information: IncompleteInformationGameState) -> ActionMask {
     let mut valid_action_mask = [false; NUM_ACTIONS];
     for available_move in game::get_available_moves(
-        normalized_information_state.player_hand,
-        normalized_information_state.trick.top_set,
+        incomplete_information.player_hand,
+        incomplete_information.trick.top_set,
     ) {
         valid_action_mask[move_to_id(available_move)] = true;
     }
@@ -225,11 +301,12 @@ fn create_valid_action_mask(
 }
 
 fn create_search_node<H: ActionPriorHeuristic>(
+    incomplete_information: IncompleteInformationGameState,
     normalized_information_state: NormalizedIncompleteInformation,
     heuristic: &mut H,
 ) -> PUCTNode {
     let action_priors = heuristic.action_priors(normalized_information_state);
-    let valid_action_mask = create_valid_action_mask(normalized_information_state);
+    let valid_action_mask = create_valid_action_mask(incomplete_information);
     let mut normalized_action_priors = [0.0; NUM_ACTIONS];
     let mut unmasked_sum = 0.0;
     for (idx, (prior, is_valid)) in action_priors.iter().zip(valid_action_mask).enumerate() {
@@ -240,10 +317,23 @@ fn create_search_node<H: ActionPriorHeuristic>(
         normalized_action_priors[idx] = *prior;
         unmasked_sum += prior;
     }
-    for idx in 0..NUM_ACTIONS {
-        normalized_action_priors[idx] /= unmasked_sum;
+
+    if unmasked_sum <= 0.0 {
+        let num_valid = valid_action_mask.iter().filter(|&&x| x).count();
+        debug_assert!(num_valid > 0);
+
+        for idx in 0..NUM_ACTIONS {
+            if valid_action_mask[idx] {
+                normalized_action_priors[idx] = 1.0 / num_valid as f32;
+            }
+        }
+    } else {
+        for idx in 0..NUM_ACTIONS {
+            normalized_action_priors[idx] /= unmasked_sum;
+        }
     }
-    return PUCTNode::new(valid_action_mask, action_priors);
+
+    return PUCTNode::new(valid_action_mask, normalized_action_priors);
 }
 
 fn puct_rollout<H: ActionPriorHeuristic>(
@@ -266,7 +356,11 @@ fn puct_rollout<H: ActionPriorHeuristic>(
             .nodes
             .entry(normalized_player_information)
             .or_insert_with(|| {
-                create_search_node(normalized_player_information, &mut search_context.heuristic)
+                create_search_node(
+                    current_player_information,
+                    normalized_player_information,
+                    &mut search_context.heuristic,
+                )
             });
         let selected_action = select_puct_action(
             search_node,
@@ -307,11 +401,14 @@ fn puct_rollout<H: ActionPriorHeuristic>(
 fn puct_evalution<H: ActionPriorHeuristic>(
     incomplete_information_state: game::IncompleteInformationGameState,
     search_context: &mut SearchContext<H>,
-) -> ActionValueMatrix {
+) -> (ActionValueMatrix, ActionMask) {
     let (possible_worlds, world_probabilities): (Vec<FullInformationGameState>, Vec<f32>) =
-        get_possible_worlds(incomplete_information_state)
-            .into_iter()
-            .unzip();
+        get_possible_worlds(
+            incomplete_information_state,
+            search_context.config.num_worlds,
+        )
+        .into_iter()
+        .unzip();
 
     let mut action_value_matrix = [[0.0; consts::MAX_PLAYERS]; NUM_ACTIONS];
     let mut action_visits = [0; NUM_ACTIONS];
@@ -340,11 +437,15 @@ fn puct_evalution<H: ActionPriorHeuristic>(
         }
     }
 
-    return action_value_matrix;
+    return (
+        action_value_matrix,
+        create_valid_action_mask(incomplete_information_state),
+    );
 }
 
 fn get_possible_worlds(
     incomplete_information_state: game::IncompleteInformationGameState,
+    num_worlds: usize,
 ) -> Vec<(game::FullInformationGameState, f32)> {
     // Needs to return normalized prob scores
     Vec::new()
