@@ -468,6 +468,7 @@ pub fn generate_random_initial_game_state(
     FullInformationGameState::new(0, array_hands, player_is_out, trick)
 }
 
+// For now, we will leave this to be naive sampling. Just need to set it up to receive the rng.
 pub fn generate_random_full_information_game_state_from_incomplete_information_game_state(
     incomplete_information_game_state: &IncompleteInformationGameState,
 ) -> FullInformationGameState {

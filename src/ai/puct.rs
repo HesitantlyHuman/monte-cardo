@@ -1,6 +1,9 @@
-use rand;
-use rand_distr::{Distribution, WeightedAliasIndex};
+use rand::rngs::SmallRng;
+use rand::SeedableRng;
+use rand_distr::weighted::WeightedAliasIndex;
+use rand_distr::Distribution;
 use std::collections::HashMap;
+use std::hash::Hash;
 
 use crate::ai::game::{self, FullInformationGameState, IncompleteInformationGameState};
 use crate::consts;
@@ -21,23 +24,44 @@ struct SearchConfig {
     temperature: f32,
 }
 
-// TODO: figure out better defaults
-impl Default for SearchConfig {
-    fn default() -> Self {
+impl SearchConfig {
+    fn inference() -> Self {
         Self {
             full_tree_depth: 4,
             num_worlds: 100,
             puct_rollouts_per_leaf: 200,
             exploration_factor: 2.0,
-            temperature: 2.0,
+            temperature: 0.1,
+        }
+    }
+
+    fn training(temperature_schedule: f32) -> Self {
+        Self {
+            full_tree_depth: 4,
+            num_worlds: 100,
+            puct_rollouts_per_leaf: 200,
+            exploration_factor: 2.0,
+            temperature: temperature_schedule,
         }
     }
 }
 
-struct SearchContext<H: ActionPriorHeuristic> {
-    heuristic: H,
+struct SearchContext<'a, H: ActionPriorHeuristic> {
+    heuristic: &'a mut H,
     nodes: HashMap<NormalizedIncompleteInformation, PUCTNode>,
     config: SearchConfig,
+    rng: SmallRng,
+}
+
+impl<'a, H: ActionPriorHeuristic> SearchContext<'a, H> {
+    fn new(heuristic: &'a mut H, config: SearchConfig) -> Self {
+        Self {
+            heuristic: heuristic,
+            nodes: HashMap::new(),
+            config: config,
+            rng: SmallRng::seed_from_u64(42),
+        }
+    }
 }
 
 trait ActionPriorHeuristic {
@@ -128,11 +152,82 @@ fn id_to_move(id: MoveID, hand: game::Hand) -> game::Move {
     });
 }
 
-fn choose_action<H: ActionPriorHeuristic>(
+fn best_action_from_values(
+    action_values: ActionValueMatrix,
+    action_mask: ActionMask,
+    player: game::PlayerNumber,
+) -> MoveID {
+    let mut best_action = None;
+    let mut best_action_value = f32::NEG_INFINITY;
+
+    for action_id in 0..NUM_ACTIONS {
+        if !action_mask[action_id] {
+            continue;
+        }
+
+        let value = action_values[action_id][player];
+
+        if value > best_action_value {
+            best_action = Some(action_id);
+            best_action_value = value;
+        }
+    }
+
+    best_action.expect("No valid actions found!")
+}
+
+// TODO: Maybe validate that the current player and perspective player are the same
+fn choose_best_action<H: ActionPriorHeuristic>(
     incomplete_information_state: game::IncompleteInformationGameState,
     heuristic: &mut H,
 ) -> game::Move {
-    game::Move::Pass
+    let search_config = SearchConfig::inference();
+    let mut search_context = SearchContext::new(heuristic, search_config);
+    let (action_values, action_mask) =
+        full_tree_evaluation(incomplete_information_state, &mut search_context, 0);
+
+    return id_to_move(
+        best_action_from_values(
+            action_values,
+            action_mask,
+            incomplete_information_state.current_player_number,
+        ),
+        incomplete_information_state.player_hand,
+    );
+}
+
+fn generate_training_example<H: ActionPriorHeuristic>(
+    incomplete_information_state: IncompleteInformationGameState,
+    heuristic: &mut H,
+    temperature_schedule: f32,
+) -> (game::Move, TrainingExample) {
+    let search_config = SearchConfig::training(temperature_schedule);
+    let mut search_context = SearchContext::new(heuristic, search_config);
+    let (action_values, action_mask) =
+        full_tree_evaluation(incomplete_information_state, &mut search_context, 0);
+
+    let selected_move = id_to_move(
+        best_action_from_values(
+            action_values,
+            action_mask,
+            incomplete_information_state.current_player_number,
+        ),
+        incomplete_information_state.player_hand,
+    );
+    let action_probabilities = value_to_probabilities(
+        action_values,
+        action_mask,
+        incomplete_information_state.current_player_number,
+        temperature_schedule,
+    );
+    return (
+        selected_move,
+        TrainingExample {
+            state: normalize_incomplete_information_state(incomplete_information_state),
+            action_probabilities: action_probabilities,
+            action_mask: action_mask,
+        },
+    );
 }
 
 fn full_tree_evaluation<H: ActionPriorHeuristic>(
@@ -359,7 +454,7 @@ fn puct_rollout<H: ActionPriorHeuristic>(
                 create_search_node(
                     current_player_information,
                     normalized_player_information,
-                    &mut search_context.heuristic,
+                    search_context.heuristic,
                 )
             });
         let selected_action = select_puct_action(
@@ -416,10 +511,9 @@ fn puct_evalution<H: ActionPriorHeuristic>(
     // TODO: would it be a good idea to put the rng in the search context?
     let dist =
         WeightedAliasIndex::new(world_probabilities).expect("Failed to build random world index");
-    let mut rng = rand::thread_rng();
 
     for _ in 0..search_context.config.puct_rollouts_per_leaf {
-        let possible_world = possible_worlds[dist.sample(&mut rng)];
+        let possible_world = possible_worlds[dist.sample(&mut search_context.rng)];
         let (first_move, final_values) = puct_rollout(possible_world, search_context);
         action_visits[first_move] += 1;
         for player_index in 0..consts::MAX_PLAYERS {
