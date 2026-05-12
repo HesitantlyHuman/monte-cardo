@@ -1,13 +1,11 @@
-use core::num;
+use rand;
+use rand_distr::{Distribution, WeightedAliasIndex};
 use std::collections::HashMap;
 
-use crate::ai::game;
+use crate::ai::game::{self, FullInformationGameState};
 use crate::consts;
 
 const NUM_ACTIONS: usize = 1 + consts::MAX_CARD_NUMBER * consts::MAX_CARD_ORDINALITY * 2; // The assumption is that we only consider playing the minimum number of wilds. Using all the wilds and all of the cards the max you could play in one go is consts::MAX_CARD_NUMBER * 2
-
-const SWAP_DEPTH: usize = 4;
-const TEMPERATURE: f32 = 2.0;
 
 type PlayerValues = [f32; consts::MAX_PLAYERS];
 type ActionValueMatrix = [PlayerValues; NUM_ACTIONS];
@@ -21,6 +19,19 @@ struct SearchConfig {
     puct_rollouts_per_leaf: usize,
     exploration_factor: f32,
     temperature: f32,
+}
+
+// TODO: figure out better defaults
+impl Default for SearchConfig {
+    fn default() -> Self {
+        Self {
+            full_tree_depth: 4,
+            num_worlds: 100,
+            puct_rollouts_per_leaf: 200,
+            exploration_factor: 2.0,
+            temperature: 2.0,
+        }
+    }
 }
 
 struct SearchContext<H: ActionPriorHeuristic> {
@@ -40,7 +51,6 @@ fn value_to_probabilities(
     [0.0; NUM_ACTIONS]
 }
 
-// TODO: add debug asserts for underflows
 fn move_to_id(game_move: game::Move) -> MoveID {
     match game_move {
         game::Move::Pass => 0,
@@ -48,11 +58,14 @@ fn move_to_id(game_move: game::Move) -> MoveID {
             rank,
             num_non_wilds,
             num_wilds,
-        }) => consts::MAX_CARD_ORDINALITY * (num_non_wilds + num_wilds - 1) as usize + rank + 1,
+        }) => {
+            let total_num_cards = num_non_wilds + num_wilds;
+            debug_assert!(total_num_cards > 0);
+            consts::MAX_CARD_ORDINALITY * (total_num_cards - 1) as usize + rank + 1
+        }
     }
 }
 
-// TODO: add debug asserts for underflows
 fn id_to_move(id: MoveID, hand: game::Hand) -> game::Move {
     if id == 0 {
         return game::Move::Pass;
@@ -98,6 +111,14 @@ fn full_tree_evaluation<H: ActionPriorHeuristic>(
     search_context: &mut SearchContext<H>,
     current_depth: usize,
 ) -> ActionValueMatrix {
+    let possible_worlds_and_probs = get_possible_worlds(incomplete_information_state);
+
+    let mut action_value_matrix = [[0.0; consts::MAX_PLAYERS]; NUM_ACTIONS];
+
+    for (world, probability) in possible_worlds_and_probs {
+        for action_id in 0..NUM_ACTIONS {}
+    }
+
     debug_assert_eq!(
         incomplete_information_state.current_player_number,
         incomplete_information_state.perspective_player_number
@@ -136,7 +157,7 @@ fn normalize_incomplete_information_state(
 struct PUCTNode {
     action_mask: ActionMask,
     action_priors: ActionProbabilties,
-    visit_weights: [f32; NUM_ACTIONS],
+    visit_counts: [u32; NUM_ACTIONS],
     accumulated_values: ActionValueMatrix,
 }
 
@@ -145,31 +166,32 @@ impl PUCTNode {
         PUCTNode {
             action_mask: action_mask,
             action_priors: action_priors,
-            visit_weights: [0.0; NUM_ACTIONS],
+            visit_counts: [0; NUM_ACTIONS],
             accumulated_values: [[0.0; consts::MAX_PLAYERS]; NUM_ACTIONS],
         }
     }
 }
 
-fn puct_score(node: &PUCTNode, action_id: usize, exploration_factor: f32) -> f32 {
+fn puct_score(node: &PUCTNode, action_id: usize, player_id: usize, exploration_factor: f32) -> f32 {
     // Considered from the perspective of 0 being the active player
-    let n_action_taken = node.visit_weights[action_id];
-    let n_times_at_node: f32 = node.visit_weights.iter().sum();
+    let n_action_taken = node.visit_counts[action_id];
+    let n_times_at_node: u32 = node.visit_counts.iter().sum();
 
-    let q_term = if n_action_taken == 0.0 {
+    let q_term = if n_action_taken == 0 {
         0.0
     } else {
-        node.accumulated_values[action_id][0] / n_action_taken
+        node.accumulated_values[action_id][player_id] / n_action_taken as f32
     };
 
     let prior = node.action_priors[action_id];
-    let exploration_term =
-        exploration_factor * prior * (n_times_at_node.sqrt() / (1.0 + n_action_taken));
+    let exploration_term = exploration_factor
+        * prior
+        * ((n_times_at_node as f32).sqrt() / (1.0 + n_action_taken as f32));
 
     return q_term + exploration_term;
 }
 
-fn select_puct_action(node: &PUCTNode, exploration_factor: f32) -> usize {
+fn select_puct_action(node: &PUCTNode, player_id: usize, exploration_factor: f32) -> usize {
     let mut best_action = None;
     let mut best_score = f32::NEG_INFINITY;
 
@@ -178,7 +200,7 @@ fn select_puct_action(node: &PUCTNode, exploration_factor: f32) -> usize {
             continue;
         }
 
-        let score = puct_score(node, action_id, exploration_factor);
+        let score = puct_score(node, action_id, player_id, exploration_factor);
 
         if score > best_score {
             best_action = Some(action_id);
@@ -206,15 +228,26 @@ fn create_search_node<H: ActionPriorHeuristic>(
     normalized_information_state: NormalizedIncompleteInformation,
     heuristic: &mut H,
 ) -> PUCTNode {
-    // TODO: renormalize priors after getting the mask
     let action_priors = heuristic.action_priors(normalized_information_state);
     let valid_action_mask = create_valid_action_mask(normalized_information_state);
+    let mut normalized_action_priors = [0.0; NUM_ACTIONS];
+    let mut unmasked_sum = 0.0;
+    for (idx, (prior, is_valid)) in action_priors.iter().zip(valid_action_mask).enumerate() {
+        if !is_valid {
+            continue;
+        }
+
+        normalized_action_priors[idx] = *prior;
+        unmasked_sum += prior;
+    }
+    for idx in 0..NUM_ACTIONS {
+        normalized_action_priors[idx] /= unmasked_sum;
+    }
     return PUCTNode::new(valid_action_mask, action_priors);
 }
 
 fn puct_rollout<H: ActionPriorHeuristic>(
     world: game::FullInformationGameState,
-    world_probability: f32,
     search_context: &mut SearchContext<H>,
 ) -> (MoveID, PlayerValues) {
     // Worst case is playing one card per turn
@@ -235,8 +268,11 @@ fn puct_rollout<H: ActionPriorHeuristic>(
             .or_insert_with(|| {
                 create_search_node(normalized_player_information, &mut search_context.heuristic)
             });
-        let selected_action =
-            select_puct_action(search_node, search_context.config.exploration_factor);
+        let selected_action = select_puct_action(
+            search_node,
+            current_player_information.current_player_number,
+            search_context.config.exploration_factor,
+        );
 
         nodes_to_update.push((selected_action, normalized_player_information));
         let action_move = id_to_move(selected_action, current_player_information.player_hand);
@@ -246,15 +282,13 @@ fn puct_rollout<H: ActionPriorHeuristic>(
         match update_world(&mut world, action_move) {
             Some(player_values) => {
                 // First update the stats for all the nodes we visited
-                // TODO: Since the accumulated values are for the perspective player, we would need to rotate here. Do we want to do that, or do I need to add the current player to the puct value scoring?
-                // TODO: Change this to normal PUCT values (i.e. not using world probability), since we are going to sample the worlds according to their weight.
                 for (selected_action, key) in nodes_to_update {
                     if let Some(search_node) = search_context.nodes.get_mut(&key) {
                         for player_id in 0..consts::MAX_PLAYERS {
                             search_node.accumulated_values[selected_action][player_id] +=
-                                player_values[player_id] * world_probability
+                                player_values[player_id]
                         }
-                        search_node.visit_weights[selected_action] += world_probability;
+                        search_node.visit_counts[selected_action] += 1;
                     }
                 }
                 // Then return!
@@ -274,26 +308,35 @@ fn puct_evalution<H: ActionPriorHeuristic>(
     incomplete_information_state: game::IncompleteInformationGameState,
     search_context: &mut SearchContext<H>,
 ) -> ActionValueMatrix {
-    let possible_worlds_and_scores = get_possible_worlds(incomplete_information_state);
+    let (possible_worlds, world_probabilities): (Vec<FullInformationGameState>, Vec<f32>) =
+        get_possible_worlds(incomplete_information_state)
+            .into_iter()
+            .unzip();
 
     let mut action_value_matrix = [[0.0; consts::MAX_PLAYERS]; NUM_ACTIONS];
-    let mut total_probability_mass = [0.0; NUM_ACTIONS];
-    // TODO: need to change this so that we rotate through the worlds. Actually,
-    // maybe we should be sampling the choice of world by the probability, so
-    // that we spend more time considering worlds that are more likely.
-    for (possible_world, probability) in possible_worlds_and_scores {
-        let (first_move, final_values) = puct_rollout(possible_world, probability, search_context);
-        total_probability_mass[first_move] += probability;
+    let mut action_visits = [0; NUM_ACTIONS];
+
+    // TODO: would it be a good idea to put the rng in the search context?
+    let dist =
+        WeightedAliasIndex::new(world_probabilities).expect("Failed to build random world index");
+    let mut rng = rand::thread_rng();
+
+    for _ in 0..search_context.config.puct_rollouts_per_leaf {
+        let possible_world = possible_worlds[dist.sample(&mut rng)];
+        let (first_move, final_values) = puct_rollout(possible_world, search_context);
+        action_visits[first_move] += 1;
         for player_index in 0..consts::MAX_PLAYERS {
-            action_value_matrix[first_move][player_index] +=
-                probability * final_values[player_index];
+            action_value_matrix[first_move][player_index] += final_values[player_index];
         }
     }
 
-    // TODO: this could divide by zero
     for action_id in 0..NUM_ACTIONS {
+        if action_visits[action_id] == 0 {
+            continue;
+        }
+
         for player_index in 0..consts::MAX_PLAYERS {
-            action_value_matrix[action_id][player_index] /= total_probability_mass[action_id]
+            action_value_matrix[action_id][player_index] /= action_visits[action_id] as f32
         }
     }
 
@@ -303,7 +346,7 @@ fn puct_evalution<H: ActionPriorHeuristic>(
 fn get_possible_worlds(
     incomplete_information_state: game::IncompleteInformationGameState,
 ) -> Vec<(game::FullInformationGameState, f32)> {
-    // Should return normalized probability scores
+    // Needs to return normalized prob scores
     Vec::new()
 }
 
