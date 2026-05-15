@@ -238,6 +238,7 @@ fn full_tree_evaluation<H: ActionPriorHeuristic>(
     let possible_worlds_and_probs = get_possible_worlds(
         incomplete_information_state,
         search_context.config.num_worlds,
+        search_context,
     );
 
     let mut action_value_matrix = [[0.0; consts::MAX_PLAYERS]; NUM_ACTIONS];
@@ -501,6 +502,7 @@ fn puct_evalution<H: ActionPriorHeuristic>(
         get_possible_worlds(
             incomplete_information_state,
             search_context.config.num_worlds,
+            search_context,
         )
         .into_iter()
         .unzip();
@@ -537,9 +539,10 @@ fn puct_evalution<H: ActionPriorHeuristic>(
     );
 }
 
-fn get_possible_worlds(
+fn get_possible_worlds<H: ActionPriorHeuristic>(
     incomplete_information_state: game::IncompleteInformationGameState,
     num_worlds: usize,
+    search_context: &mut SearchContext<H>,
 ) -> Vec<(game::FullInformationGameState, f32)> {
     // Needs to return normalized prob scores
     Vec::new()
