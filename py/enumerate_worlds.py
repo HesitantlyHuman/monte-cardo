@@ -78,30 +78,7 @@ def _enumerate_from_state(
     column_constraints: np.ndarray,
     rows_complete: np.ndarray,
     cols_complete: np.ndarray,
-    pbar: tqdm | None = None,
-    stats: dict[str, int] | None = None,
-    depth: int = 0,
 ) -> Iterator[np.ndarray]:
-    def update_postfix(force: bool = False) -> None:
-        if pbar is None or stats is None:
-            return
-
-        if (
-            force
-            or stats["states_seen"] - stats["last_postfix_update"]
-            >= stats["postfix_every"]
-        ):
-            stats["last_postfix_update"] = stats["states_seen"]
-            pbar.set_postfix(
-                states=stats["states_seen"],
-                solutions=stats["solutions"],
-                refresh=True,
-            )
-
-    if stats is not None:
-        stats["states_seen"] += 1
-        update_postfix()
-
     # state[row_idx, col_idx]
     #
     # Row sums sum across columns.
@@ -117,7 +94,6 @@ def _enumerate_from_state(
     ):
         if not (np.all(remaining_row_mass == 0) and np.all(remaining_col_mass == 0)):
             raise RuntimeError("Final state is not a solution!")
-
         yield state
         return
 
@@ -152,46 +128,23 @@ def _enumerate_from_state(
 
         allocations = stars_and_bars(row_candidate_value, len(open_col_idxs))
 
-        created_pbar_here = False
-        if pbar is None and stats is not None and len(allocations) > 1:
-            pbar = tqdm(
-                total=len(allocations),
-                desc=f"stars-and-bars depth {depth}",
-                unit="branch",
+        for allocation in allocations:
+            next_state = state.copy()
+            next_rows_complete = rows_complete.copy()
+
+            # This indexing may be non-contiguous in columns, so use explicit
+            # integer-array indexing rather than slicing.
+            next_state[row_idx, open_col_idxs] = allocation
+
+            next_rows_complete[row_idx] = True
+
+            yield from _enumerate_from_state(
+                next_state,
+                row_constraints,
+                column_constraints,
+                next_rows_complete,
+                cols_complete,
             )
-            stats["tracked_depth"] = depth
-            created_pbar_here = True
-
-        try:
-            for allocation in allocations:
-                next_state = state.copy()
-                next_rows_complete = rows_complete.copy()
-
-                # This indexing may be non-contiguous in columns, so use explicit
-                # integer-array indexing rather than slicing.
-                next_state[row_idx, open_col_idxs] = allocation
-
-                next_rows_complete[row_idx] = True
-
-                yield from _enumerate_from_state(
-                    next_state,
-                    row_constraints,
-                    column_constraints,
-                    next_rows_complete,
-                    cols_complete,
-                    pbar,
-                    stats,
-                    depth + 1,
-                )
-
-                if created_pbar_here:
-                    pbar.update(1)
-                    update_postfix()
-
-        finally:
-            if created_pbar_here:
-                update_postfix(force=True)
-                pbar.close()
 
     else:
         # Fill one column.
@@ -203,46 +156,23 @@ def _enumerate_from_state(
 
         allocations = stars_and_bars(col_candidate_value, len(open_row_idxs))
 
-        created_pbar_here = False
-        if pbar is None and stats is not None and len(allocations) > 1:
-            pbar = tqdm(
-                total=len(allocations),
-                desc=f"stars-and-bars depth {depth}",
-                unit="branch",
+        for allocation in allocations:
+            next_state = state.copy()
+            next_cols_complete = cols_complete.copy()
+
+            # This indexing may be non-contiguous in rows, so use explicit
+            # integer-array indexing rather than slicing.
+            next_state[open_row_idxs, col_idx] = allocation
+
+            next_cols_complete[col_idx] = True
+
+            yield from _enumerate_from_state(
+                next_state,
+                row_constraints,
+                column_constraints,
+                rows_complete,
+                next_cols_complete,
             )
-            stats["tracked_depth"] = depth
-            created_pbar_here = True
-
-        try:
-            for allocation in allocations:
-                next_state = state.copy()
-                next_cols_complete = cols_complete.copy()
-
-                # This indexing may be non-contiguous in rows, so use explicit
-                # integer-array indexing rather than slicing.
-                next_state[open_row_idxs, col_idx] = allocation
-
-                next_cols_complete[col_idx] = True
-
-                yield from _enumerate_from_state(
-                    next_state,
-                    row_constraints,
-                    column_constraints,
-                    rows_complete,
-                    next_cols_complete,
-                    pbar,
-                    stats,
-                    depth + 1,
-                )
-
-                if created_pbar_here:
-                    pbar.update(1)
-                    update_postfix()
-
-        finally:
-            if created_pbar_here:
-                update_postfix(force=True)
-                pbar.close()
 
 
 def enumerate_states(
@@ -259,52 +189,19 @@ def enumerate_states(
         row_constraints, dtype=bool
     ), np.zeros_like(col_constraints, dtype=bool)
 
-    stats = {
-        "states_seen": 0,
-        "solutions": 0,
-        "postfix_every": 10_000,
-        "last_postfix_update": 0,
-        "tracked_depth": -1,
-    }
-
-    for final_state in _enumerate_from_state(
+    yield from _enumerate_from_state(
         initial_state,
         row_constraints,
         col_constraints,
         rows_complete,
         cols_complete,
-        None,
-        stats,
-    ):
-        stats["solutions"] += 1
-        yield final_state
+    )
 
 
-# # Up to 15 players, with 18 ordinality slots
-# player_constraints = [4, 5, 7, 5, 7, 5, 6, 6, 0, 0, 0, 0, 0, 0, 0]
-# card_counts = [2, 4, 4, 4, 4, 2, 4, 4, 2, 4, 4, 2, 3, 2, 0, 0, 0, 0]
+row_constraints = [3, 4, 7]
+col_constraints = [4, 5, 5]
 
-# # Somone played 2 12s
-# # Then someone else played 2 10s
-# # Then someone played 2 7s
-# # Then someone played 2 4s
-
-# Up to 15 players, with 18 ordinality slots
-player_constraints = [5, 4, 7, 6, 5, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0]
-card_counts = [2, 4, 2, 2, 4, 2, 4, 1, 1, 3, 4, 2, 3, 0, 0, 0, 0, 0]
-
-# Somone played 2 12s
-# Then someone else played 2 10s
-# Then someone played 2 7s
-# Then someone played 2 4s
-# Then someone played 1 11s
-# Then someone played 1 8s
-# Then someone played 1 7s
-# Then someone played 2 2s
-
-state_count = 0
-for final_state in enumerate_states(
-    row_constraints=player_constraints, col_constraints=card_counts
+for state in enumerate_states(
+    row_constraints=row_constraints, col_constraints=col_constraints
 ):
-    state_count += 1
-print(state_count)
+    print(state)

@@ -1,5 +1,5 @@
 [package]
-name = "ladder-shedding"
+name = "monte-cardo"
 version = "0.1.0"
 edition = "2021"
 
@@ -11,3 +11,10 @@ kdam = "0.5.1"
 rand = "0.10.1"
 rand_distr = "0.6.0"
 ratatui = "0.26.2"
+
+[dev-dependencies]
+criterion = {version = "0.8.2", features = ["html_reports"]}
+
+[[bench]]
+name = "world_generation"
+harness = false
