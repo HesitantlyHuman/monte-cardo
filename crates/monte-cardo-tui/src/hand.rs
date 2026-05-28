@@ -1,4 +1,4 @@
-use crate::ui::cards::{Hand, Move};
+use crate::cards::{Hand, Move};
 use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Layout, Rect},
@@ -23,7 +23,7 @@ pub enum SuggestedMove {
 #[derive(Debug, Clone)]
 pub struct PlayerTurnHand {
     can_pass: bool,
-    hand: [u8; crate::consts::MAX_CARD_ORDINALITY],
+    hand: [u8; monte_cardo_core::consts::MAX_CARD_ORDINALITY],
     suggested_move: SuggestedMove,
     pub available_moves: Vec<Move>,
     currently_selected: Option<usize>,
@@ -32,7 +32,7 @@ pub struct PlayerTurnHand {
 impl PlayerTurnHand {
     pub fn new(
         can_pass: bool,
-        hand: [u8; crate::consts::MAX_CARD_ORDINALITY],
+        hand: [u8; monte_cardo_core::consts::MAX_CARD_ORDINALITY],
         suggested_move: SuggestedMove,
         available_moves: Vec<Move>,
         currently_selected: Option<usize>,
@@ -169,13 +169,13 @@ impl Widget for PlayerTurnHand {
         // Now, draw the hand
         if area.height > 4 {
             let remaining_height = area.height - 4; // Reserving 2 lines at the bottom for the footer info
-            let mut available = [0; crate::consts::MAX_CARD_ORDINALITY];
+            let mut available = [0; monte_cardo_core::consts::MAX_CARD_ORDINALITY];
             for move_option in self.available_moves.iter() {
                 available[0] = available[0].max(move_option.num_wilds);
                 available[move_option.rank as usize] =
                     available[move_option.rank as usize].max(move_option.num_non_wilds);
             }
-            let mut selected = [0; crate::consts::MAX_CARD_ORDINALITY];
+            let mut selected = [0; monte_cardo_core::consts::MAX_CARD_ORDINALITY];
             if let Some(move_idx) = self.currently_selected {
                 let move_option = self.available_moves[move_idx];
                 selected[0] = move_option.num_wilds;
@@ -325,7 +325,7 @@ impl Widget for PlayerTurnHand {
 #[derive(Debug, Clone)]
 pub enum PlayerHand {
     CurrentTurn(PlayerTurnHand),
-    NotPlayerTurn([u8; crate::consts::MAX_CARD_ORDINALITY]),
+    NotPlayerTurn([u8; monte_cardo_core::consts::MAX_CARD_ORDINALITY]),
 }
 
 impl Widget for PlayerHand {

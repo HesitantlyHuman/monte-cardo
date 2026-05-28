@@ -1,5 +1,5 @@
-use crate::ai::game::IncompleteInformationGameState;
 use crate::consts;
+use crate::game::IncompleteInformationGameState;
 
 pub const NETWORK_INPUTS_SIZE: usize = 2 * (consts::MAX_CARD_ORDINALITY * consts::MAX_CARD_NUMBER)
     + 1

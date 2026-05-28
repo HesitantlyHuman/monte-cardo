@@ -6,16 +6,25 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 
+[lib]
+name = "monte_cardo_core"
+path = "src/lib.rs"
+
 [dependencies]
-crossterm = "0.27.0"
-kdam = "0.5.1"
 rand = "0.10.1"
 rand_distr = "0.6.0"
-ratatui = "0.26.2"
 
 [dev-dependencies]
 criterion = {version = "0.8.2", features = ["html_reports"]}
 
 [[bench]]
 name = "world_generation"
+harness = false
+
+[[bench]]
+name = "simple_valid"
+harness = false
+
+[[bench]]
+name = "sparsity_cells"
 harness = false

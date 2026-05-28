@@ -1,4 +1,4 @@
-use crate::ui::cards::Move;
+use crate::cards::Move;
 
 use ratatui::{
     buffer::Buffer,
@@ -197,7 +197,7 @@ impl Widget for Table {
         // Now, lets draw in our move
         match &self.top_set {
             Some(top_set) => {
-                let top_set_move = crate::ui::cards::Move::new(
+                let top_set_move = crate::cards::Move::new(
                     top_set.top_set_move.rank,
                     top_set.top_set_move.num_wilds,
                     top_set.top_set_move.num_non_wilds,

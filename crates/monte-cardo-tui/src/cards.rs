@@ -1,4 +1,4 @@
-use crate::consts::{MAX_CARD_ORDINALITY, MAX_PLAYERS};
+use monte_cardo_core::consts::{MAX_CARD_ORDINALITY, MAX_PLAYERS};
 use ratatui::{
     buffer::Buffer,
     layout::Rect,

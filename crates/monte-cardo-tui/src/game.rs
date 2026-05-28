@@ -1,7 +1,7 @@
-use crate::ui::cards::TrickHistory;
-use crate::ui::hand::PlayerHand;
-use crate::ui::players::Players;
-use crate::ui::table::Table;
+use crate::cards::TrickHistory;
+use crate::hand::PlayerHand;
+use crate::players::Players;
+use crate::table::Table;
 
 use ratatui::{
     buffer::Buffer,
@@ -192,7 +192,7 @@ impl Widget for GameState {
 
         // Now, lets render the table and trick history
         let table_and_trick_history =
-            crate::ui::table::TableAndTrickHistory::new(self.table, self.trick_history);
+            crate::table::TableAndTrickHistory::new(self.table, self.trick_history);
         if area.height >= 3 + hand_panel_height {
             table_and_trick_history.render(
                 Rect {

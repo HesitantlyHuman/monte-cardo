@@ -5,8 +5,8 @@ use rand_distr::Distribution;
 use std::collections::HashMap;
 use std::hash::Hash;
 
-use crate::ai::game::{self, FullInformationGameState, IncompleteInformationGameState};
 use crate::consts;
+use crate::game::{self, FullInformationGameState, IncompleteInformationGameState};
 
 const NUM_ACTIONS: usize = 1 + consts::MAX_CARD_NUMBER * consts::MAX_CARD_ORDINALITY * 2; // The assumption is that we only consider playing the minimum number of wilds. Using all the wilds and all of the cards the max you could play in one go is consts::MAX_CARD_NUMBER * 2
 

@@ -179,7 +179,7 @@ def enumerate_states(
     row_constraints: list[int], col_constraints: list[int]
 ) -> Iterator[np.ndarray]:
     initial_state = np.zeros((len(row_constraints), len(col_constraints)))
-    row_constraints, col_constraints = np.array(row_constraints), np.array(
+    row_constraints_array, col_constraints_array = np.array(row_constraints), np.array(
         col_constraints
     )
     if not np.sum(row_constraints) == np.sum(col_constraints):
@@ -191,17 +191,21 @@ def enumerate_states(
 
     yield from _enumerate_from_state(
         initial_state,
-        row_constraints,
-        col_constraints,
+        row_constraints_array,
+        col_constraints_array,
         rows_complete,
         cols_complete,
     )
 
 
-row_constraints = [3, 4, 7]
-col_constraints = [4, 5, 5]
+if __name__ == "__main__":
+    row_constraints = [3, 4, 1, 1, 5]
+    col_constraints = [2, 5, 5, 1, 1]
 
-for state in enumerate_states(
-    row_constraints=row_constraints, col_constraints=col_constraints
-):
-    print(state)
+    num_states = 0
+    for state in enumerate_states(
+        row_constraints=row_constraints, col_constraints=col_constraints
+    ):
+        num_states += 1
+
+    print(f'Found {num_states} total states.')

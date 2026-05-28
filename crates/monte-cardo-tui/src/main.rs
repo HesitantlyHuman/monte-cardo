@@ -1,6 +1,8 @@
-mod ai;
-mod consts;
-mod ui;
+mod cards;
+mod game;
+mod hand;
+mod players;
+mod table;
 
 use crossterm::{
     event::{self, Event, KeyCode, KeyModifiers},
@@ -13,37 +15,44 @@ use std::{
 };
 
 fn update_state_and_trick_history_with_ai_move(
-    game_state: &mut ai::game::FullInformationGameState,
+    game_state: &mut monte_cardo_core::game::FullInformationGameState,
     player_names: &Vec<String>,
-    trick_history: &mut Vec<ui::cards::TrickHistoryEntry>,
-    heuristic: &dyn ai::monte_carlo::Heuristic,
+    trick_history: &mut Vec<cards::TrickHistoryEntry>,
+    heuristic: &dyn monte_cardo_core::monte_carlo::Heuristic,
 ) {
     let current_player = game_state.current_player_number;
     if game_state.player_is_out[current_player] {
-        game_state.current_player_number = ai::game::get_next_active_player(
+        game_state.current_player_number = monte_cardo_core::game::get_next_active_player(
             &game_state.player_is_out,
             game_state.current_player_number,
         )
         .unwrap();
     }
     let incomplete_information_game_state =
-        ai::game::create_incomplete_information_game_state(*game_state, current_player);
-    let game_move =
-        ai::monte_carlo::get_best_move(incomplete_information_game_state, heuristic, 20_000);
-    ai::game::update_full_information_game_state(game_state, &game_move);
+        monte_cardo_core::game::create_incomplete_information_game_state(
+            *game_state,
+            current_player,
+        );
+    let game_move = monte_cardo_core::monte_carlo::get_best_move(
+        incomplete_information_game_state,
+        heuristic,
+        20_000,
+    );
+    monte_cardo_core::game::update_full_information_game_state(game_state, &game_move);
     match game_move {
-        ai::game::Move::Play(play) => {
+        monte_cardo_core::game::Move::Play(play) => {
             let player_name = player_names[current_player].clone();
-            let player_move = ui::cards::Move::new(
+            let player_move = crate::cards::Move::new(
                 play.rank as u8,
                 play.num_wilds as u8,
                 play.num_non_wilds as u8,
             );
             // Add the move to the trick history
-            let trick_history_entry = ui::cards::TrickHistoryEntry::new(player_name, player_move);
+            let trick_history_entry =
+                crate::cards::TrickHistoryEntry::new(player_name, player_move);
             trick_history.insert(0, trick_history_entry);
         }
-        ai::game::Move::Pass => {
+        monte_cardo_core::game::Move::Pass => {
             match game_state.trick.top_set {
                 Some(_) => {}
                 None => {
@@ -56,34 +65,34 @@ fn update_state_and_trick_history_with_ai_move(
 }
 
 fn update_state_and_trick_history_with_player_move(
-    game_state: &mut ai::game::FullInformationGameState,
+    game_state: &mut monte_cardo_core::game::FullInformationGameState,
     player_names: &Vec<String>,
-    trick_history: &mut Vec<ui::cards::TrickHistoryEntry>,
-    move_: Option<ui::cards::Move>,
+    trick_history: &mut Vec<crate::cards::TrickHistoryEntry>,
+    move_: Option<crate::cards::Move>,
 ) {
     let game_move = match move_ {
-        Some(m) => ai::game::Move::Play(ai::game::Play::new(
+        Some(m) => monte_cardo_core::game::Move::Play(monte_cardo_core::game::Play::new(
             m.rank as usize,
             m.num_wilds.into(),
             m.num_non_wilds.into(),
         )),
-        None => ai::game::Move::Pass,
+        None => monte_cardo_core::game::Move::Pass,
     };
     let current_player = game_state.current_player_number;
-    ai::game::update_full_information_game_state(game_state, &game_move);
+    monte_cardo_core::game::update_full_information_game_state(game_state, &game_move);
     match game_move {
-        ai::game::Move::Play(play) => {
+        monte_cardo_core::game::Move::Play(play) => {
             let player_name = player_names[current_player].clone();
-            let player_move = ui::cards::Move::new(
+            let player_move = crate::cards::Move::new(
                 play.rank as u8,
                 play.num_wilds as u8,
                 play.num_non_wilds as u8,
             );
             // Add to the front of the trick history
-            let history_entry = ui::cards::TrickHistoryEntry::new(player_name, player_move);
+            let history_entry = crate::cards::TrickHistoryEntry::new(player_name, player_move);
             trick_history.insert(0, history_entry);
         }
-        ai::game::Move::Pass => {
+        monte_cardo_core::game::Move::Pass => {
             match game_state.trick.top_set {
                 Some(_) => {}
                 None => {
@@ -99,11 +108,11 @@ fn internal_state_to_ui_state(
     num_players: usize,
     ui_player_number: usize,
     current_selected_move: Option<usize>,
-    ai_suggestion: Option<ai::game::Move>,
-    game_state: ai::game::FullInformationGameState,
-    trick_history: &Vec<ui::cards::TrickHistoryEntry>,
+    ai_suggestion: Option<monte_cardo_core::game::Move>,
+    game_state: monte_cardo_core::game::FullInformationGameState,
+    trick_history: &Vec<crate::cards::TrickHistoryEntry>,
     player_names: &Vec<String>,
-) -> ui::game::GameState {
+) -> crate::game::GameState {
     let mut players = vec![];
     for i in 0..num_players {
         let player_hand = &game_state.player_hands[i];
@@ -115,88 +124,89 @@ fn internal_state_to_ui_state(
         }
 
         let player_state = if i == game_state.current_player_number {
-            ui::players::PlayerState::Active
+            crate::players::PlayerState::Active
         } else if hand_size == 0 {
             match game_state.trick.top_set {
                 Some(top_set) => {
                     if top_set.player == i {
-                        ui::players::PlayerState::LeadingOut
+                        crate::players::PlayerState::LeadingOut
                     } else {
-                        ui::players::PlayerState::NormalOut
+                        crate::players::PlayerState::NormalOut
                     }
                 }
-                None => ui::players::PlayerState::NormalOut,
+                None => crate::players::PlayerState::NormalOut,
             }
         } else if game_state.trick.has_passed[i] {
-            ui::players::PlayerState::Passed
+            crate::players::PlayerState::Passed
         } else if game_state.trick.top_set.is_some()
             && game_state.trick.top_set.unwrap().player == i
         {
-            ui::players::PlayerState::Leading
+            crate::players::PlayerState::Leading
         } else {
-            ui::players::PlayerState::Normal
+            crate::players::PlayerState::Normal
         };
 
-        players.push(ui::players::Player::new(
+        players.push(crate::players::Player::new(
             player_name,
             player_state,
             hand_size,
         ));
     }
     let current_player = if ui_player_number == game_state.current_player_number {
-        ui::table::Player::PerspectivePlayer
+        crate::table::Player::PerspectivePlayer
     } else {
-        ui::table::Player::Other(player_names[game_state.current_player_number].clone())
+        crate::table::Player::Other(player_names[game_state.current_player_number].clone())
     };
     let top_set = if trick_history.len() > 0 {
         let current_leader_number = game_state.trick.top_set.unwrap().player;
         let top_set_player = if current_leader_number == ui_player_number {
-            ui::table::Player::PerspectivePlayer
+            crate::table::Player::PerspectivePlayer
         } else {
-            ui::table::Player::Other(player_names[current_leader_number].clone())
+            crate::table::Player::Other(player_names[current_leader_number].clone())
         };
-        Some(ui::table::TopSet::new(
+        Some(crate::table::TopSet::new(
             trick_history[0].player_move,
             top_set_player,
         ))
     } else {
         None
     };
-    let table = ui::table::Table::new(current_player, top_set);
+    let table = crate::table::Table::new(current_player, top_set);
 
     let player_hand = game_state.player_hands[ui_player_number];
-    let mut available_moves = ai::game::get_available_moves(player_hand, game_state.trick.top_set);
+    let mut available_moves =
+        monte_cardo_core::game::get_available_moves(player_hand, game_state.trick.top_set);
     available_moves.reverse();
     let mut converted_moves = Vec::new();
     for player_move in available_moves {
         match player_move {
-            ai::game::Move::Play(play) => {
-                converted_moves.push(ui::cards::Move::new(
+            monte_cardo_core::game::Move::Play(play) => {
+                converted_moves.push(crate::cards::Move::new(
                     play.rank as u8,
                     play.num_wilds as u8,
                     play.num_non_wilds as u8,
                 ));
             }
-            ai::game::Move::Pass => {}
+            monte_cardo_core::game::Move::Pass => {}
         }
     }
     let suggested_move = match ai_suggestion {
         Some(ai_move) => match ai_move {
-            ai::game::Move::Play(play) => ui::hand::SuggestedMove::Suggestion(
-                ui::hand::MoveSuggestion::Move(ui::cards::Move::new(
+            monte_cardo_core::game::Move::Play(play) => crate::hand::SuggestedMove::Suggestion(
+                crate::hand::MoveSuggestion::Move(crate::cards::Move::new(
                     play.rank as u8,
                     play.num_wilds as u8,
                     play.num_non_wilds as u8,
                 )),
             ),
-            ai::game::Move::Pass => {
-                ui::hand::SuggestedMove::Suggestion(ui::hand::MoveSuggestion::Pass)
+            monte_cardo_core::game::Move::Pass => {
+                crate::hand::SuggestedMove::Suggestion(crate::hand::MoveSuggestion::Pass)
             }
         },
-        None => ui::hand::SuggestedMove::Disabled,
+        None => crate::hand::SuggestedMove::Disabled,
     };
     let player_hand = if game_state.current_player_number == ui_player_number {
-        ui::hand::PlayerHand::CurrentTurn(ui::hand::PlayerTurnHand::new(
+        crate::hand::PlayerHand::CurrentTurn(crate::hand::PlayerTurnHand::new(
             game_state.trick.top_set.is_some(),
             player_hand,
             suggested_move,
@@ -204,12 +214,12 @@ fn internal_state_to_ui_state(
             current_selected_move,
         ))
     } else {
-        ui::hand::PlayerHand::NotPlayerTurn(player_hand)
+        crate::hand::PlayerHand::NotPlayerTurn(player_hand)
     };
 
-    let players = ui::players::Players::new(players);
-    let trick_history = ui::cards::TrickHistory::new(trick_history.to_vec());
-    let game = ui::game::GameState::new(players, table, trick_history, player_hand);
+    let players = crate::players::Players::new(players);
+    let trick_history = crate::cards::TrickHistory::new(trick_history.to_vec());
+    let game = crate::game::GameState::new(players, table, trick_history, player_hand);
     game
 }
 
@@ -220,8 +230,10 @@ fn main() -> io::Result<()> {
 
     let mut should_quit = false;
     let num_players = 4;
-    let mut current_game_state =
-        ai::game::generate_random_initial_game_state(num_players, consts::DEFAULT_DALMUTI_DECK);
+    let mut current_game_state = monte_cardo_core::game::generate_random_initial_game_state(
+        num_players,
+        monte_cardo_core::consts::DEFAULT_DALMUTI_DECK,
+    );
     let player_names = vec![
         "Tanner".to_string(),
         "Tiffany".to_string(),
@@ -229,12 +241,12 @@ fn main() -> io::Result<()> {
         "Dallin".to_string(),
     ];
     let ui_player_number = 0;
-    let mut current_ai_suggestion = Some(ai::monte_carlo::get_best_move(
-        ai::game::create_incomplete_information_game_state(
+    let mut current_ai_suggestion = Some(monte_cardo_core::monte_carlo::get_best_move(
+        monte_cardo_core::game::create_incomplete_information_game_state(
             current_game_state.clone(),
             ui_player_number,
         ),
-        &ai::monte_carlo::BasicHeuristic {},
+        &monte_cardo_core::monte_carlo::BasicHeuristic {},
         20_000,
     ));
     let mut current_selected_move = None;
@@ -281,12 +293,12 @@ fn main() -> io::Result<()> {
         } else if current_game_state.current_player_number == ui_player_number
             && current_ai_suggestion.is_none()
         {
-            current_ai_suggestion = Some(ai::monte_carlo::get_best_move(
-                ai::game::create_incomplete_information_game_state(
+            current_ai_suggestion = Some(monte_cardo_core::monte_carlo::get_best_move(
+                monte_cardo_core::game::create_incomplete_information_game_state(
                     current_game_state.clone(),
                     ui_player_number,
                 ),
-                &ai::monte_carlo::BasicHeuristic {},
+                &monte_cardo_core::monte_carlo::BasicHeuristic {},
                 20_000,
             ));
             current_ui_state = internal_state_to_ui_state(
@@ -316,9 +328,9 @@ fn handle_events(
     ui_player_number: usize,
     player_names: &Vec<String>,
     current_selected_move: &mut Option<usize>,
-    game_state: &mut ai::game::FullInformationGameState,
-    ui_state: &ui::game::GameState,
-    trick_history: &mut Vec<ui::cards::TrickHistoryEntry>,
+    game_state: &mut monte_cardo_core::game::FullInformationGameState,
+    ui_state: &crate::game::GameState,
+    trick_history: &mut Vec<crate::cards::TrickHistoryEntry>,
 ) -> io::Result<EventResult> {
     let mut requires_redraw = false;
     if event::poll(std::time::Duration::from_millis(50))? {
@@ -335,7 +347,7 @@ fn handle_events(
                 // Controls are active
                 let can_pass = !game_state.trick.top_set.is_none();
                 let can_move_right = match &ui_state.player_hand {
-                    ui::hand::PlayerHand::CurrentTurn(player_turn_hand) => {
+                    crate::hand::PlayerHand::CurrentTurn(player_turn_hand) => {
                         match current_selected_move {
                             Some(selected_move) => {
                                 *selected_move < player_turn_hand.available_moves.len() - 1
@@ -346,7 +358,7 @@ fn handle_events(
                     _ => false,
                 };
                 let can_move_left = match &ui_state.player_hand {
-                    ui::hand::PlayerHand::CurrentTurn(_) => match current_selected_move {
+                    crate::hand::PlayerHand::CurrentTurn(_) => match current_selected_move {
                         Some(selected_move) => *selected_move > 0,
                         None => false,
                     },
@@ -387,7 +399,7 @@ fn handle_events(
                         player_names,
                         trick_history,
                         match &ui_state.player_hand {
-                            ui::hand::PlayerHand::CurrentTurn(player_turn_hand) => Some(
+                            crate::hand::PlayerHand::CurrentTurn(player_turn_hand) => Some(
                                 player_turn_hand.available_moves[current_selected_move.unwrap()],
                             ),
                             _ => None,
@@ -411,7 +423,7 @@ fn handle_events(
             game_state,
             player_names,
             trick_history,
-            &ai::monte_carlo::BasicHeuristic {},
+            &monte_cardo_core::monte_carlo::BasicHeuristic {},
         );
         requires_redraw = true;
     }
