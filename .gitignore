@@ -3,6 +3,7 @@
 ### RUST ###
 
 /target
+Cargo.lock
 
 ### PYTHON ###
 

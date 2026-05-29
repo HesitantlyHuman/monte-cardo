@@ -1,0 +1,57 @@
+[build-system]
+requires = ["maturin>=1.8,<2"]
+build-backend = "maturin"
+
+[project]
+name = "monte-cardo"
+version = "0.1.0"
+description = "MCTS-based AI tooling for ladder-shedding card games."
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+    { name = "Tanner Sims", email = "tannersims@hesitantlyhuman.com" }
+]
+license = { text = "MIT" }
+
+dependencies = [
+    "numpy>=2",
+    "torch>=2.3",
+    "tqdm>=4.66",
+]
+
+[project.optional-dependencies]
+dev = [
+    "maturin>=1.8,<2",
+    "pytest>=8",
+    "ruff>=0.8",
+    "pyright>=1.1",
+]
+
+analysis = [
+    "pandas>=3",
+    "scipy>=1.13",
+    "matplotlib>=3.8",
+    "jupyter>=1",
+    "tabulate>=0.10",
+    "seaborn>=0.13"
+]
+
+onnx = [
+    "onnx>=1.16",
+    "onnxruntime>=1.18",
+]
+
+[tool.maturin]
+manifest-path = "crates/monte-cardo-python/Cargo.toml"
+python-source = "python"
+module-name = "monte_cardo._rust"
+features = ["pyo3/extension-module"]
+
+[tool.ruff]
+line-length = 80
+target-version = "py312"
+
+[tool.pyright]
+include = ["python", "scripts"]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
