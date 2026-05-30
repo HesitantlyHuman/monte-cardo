@@ -2,7 +2,7 @@ use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Through
 use rand::{rngs::SmallRng, SeedableRng};
 use std::hint::black_box;
 
-use monte_cardo_core::world::{card_dealing, mass_mixing, progressive_stars_and_bars};
+use monte_cardo_core::world::{card_dealing, greedy_stars_and_bars, mass_mixing};
 
 const M: usize = 18;
 const N: usize = 18;
@@ -227,12 +227,12 @@ fn bench_case(
     bench_single_matrix_algorithm(
         c,
         "world_generation_18x18_batch",
-        "progressive_stars_and_bars",
+        "greedy_stars_and_bars",
         margin_name,
         mass,
         num_matrices,
         margins,
-        progressive_stars_and_bars::<M, N>,
+        greedy_stars_and_bars::<M, N>,
     );
 
     bench_batch_algorithm(

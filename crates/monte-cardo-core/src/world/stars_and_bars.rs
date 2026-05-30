@@ -37,7 +37,7 @@ fn stars_and_bars<const N: usize>(
     debug_assert_eq!(output[..slots].iter().sum::<usize>(), mass);
 }
 
-pub fn progressive_stars_and_bars<const M: usize, const N: usize>(
+pub fn greedy_stars_and_bars<const M: usize, const N: usize>(
     row_margins: [usize; M],
     column_margins: [usize; N],
     rng: &mut SmallRng,
@@ -126,13 +126,13 @@ mod tests {
     }
 
     #[test]
-    fn progressive_stars_and_bars_sums_to_margins() {
+    fn greedy_stars_and_bars_sums_to_margins() {
         let mut rng = SmallRng::seed_from_u64(123);
 
         let row_margins = [3, 4, 7, 2];
         let column_margins = [4, 6, 6];
 
-        let output = progressive_stars_and_bars(row_margins, column_margins, &mut rng);
+        let output = greedy_stars_and_bars(row_margins, column_margins, &mut rng);
 
         let c_rows: Vec<usize> = output.iter().map(|row| row.iter().sum::<usize>()).collect();
 
