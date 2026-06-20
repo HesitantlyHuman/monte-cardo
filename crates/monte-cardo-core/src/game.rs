@@ -4,17 +4,17 @@ use rand::{rngs::SmallRng, Rng, RngExt};
 
 pub type PlayerNumber = usize;
 type CardRank = usize;
-pub type Hand = [u8; consts::MAX_CARD_ORDINALITY];
+pub type Hand = [usize; consts::MAX_CARD_ORDINALITY];
 
 #[derive(Debug, Clone, Copy)]
 pub struct Play {
     pub rank: CardRank,
-    pub num_non_wilds: u8,
-    pub num_wilds: u8,
+    pub num_non_wilds: usize,
+    pub num_wilds: usize,
 }
 
 impl Play {
-    pub fn new(rank: CardRank, num_wilds: u8, num_non_wilds: u8) -> Play {
+    pub fn new(rank: CardRank, num_wilds: usize, num_non_wilds: usize) -> Play {
         Play {
             rank,
             num_non_wilds,
@@ -34,11 +34,11 @@ pub enum Move {
 pub struct TopSet {
     pub player: PlayerNumber,
     pub rank: CardRank,
-    pub number: u8,
+    pub number: usize,
 }
 
 impl TopSet {
-    pub fn new(player: PlayerNumber, rank: CardRank, number: u8) -> TopSet {
+    pub fn new(player: PlayerNumber, rank: CardRank, number: usize) -> TopSet {
         TopSet {
             player,
             rank,
@@ -66,10 +66,11 @@ impl Trick {
 pub struct IncompleteInformationGameState {
     pub current_player_number: PlayerNumber,
     pub perspective_player_number: PlayerNumber,
+    pub number_of_players: usize,
     pub player_hand: Hand,
-    pub opponent_cards: [u8; consts::MAX_CARD_ORDINALITY],
-    pub player_is_out: [bool; consts::MAX_PLAYERS],
-    pub hand_sizes: [u16; consts::MAX_PLAYERS],
+    pub opponent_cards: [usize; consts::MAX_CARD_ORDINALITY],
+    pub player_finish_order: [usize; consts::MAX_PLAYERS],
+    pub hand_sizes: [usize; consts::MAX_PLAYERS],
     pub trick: Trick,
 }
 
@@ -77,18 +78,20 @@ impl IncompleteInformationGameState {
     fn new(
         current_player_number: PlayerNumber,
         perspective_player_number: PlayerNumber,
+        number_of_players: usize,
         player_hand: Hand,
-        opponent_cards: [u8; consts::MAX_CARD_ORDINALITY],
-        player_is_out: [bool; consts::MAX_PLAYERS],
-        hand_sizes: [u16; consts::MAX_PLAYERS],
+        opponent_cards: [usize; consts::MAX_CARD_ORDINALITY],
+        player_finish_order: [usize; consts::MAX_PLAYERS],
+        hand_sizes: [usize; consts::MAX_PLAYERS],
         trick: Trick,
     ) -> IncompleteInformationGameState {
         IncompleteInformationGameState {
             current_player_number,
             perspective_player_number,
+            number_of_players,
             player_hand,
             opponent_cards,
-            player_is_out,
+            player_finish_order,
             hand_sizes,
             trick,
         }
@@ -99,44 +102,47 @@ impl IncompleteInformationGameState {
 #[derive(Debug, Clone, Copy)]
 pub struct FullInformationGameState {
     pub current_player_number: PlayerNumber,
+    pub number_of_players: usize,
     pub player_hands: [Hand; consts::MAX_PLAYERS],
-    pub player_is_out: [bool; consts::MAX_PLAYERS],
+    pub player_finish_order: [usize; consts::MAX_PLAYERS],
     pub trick: Trick,
 }
 
 impl FullInformationGameState {
     fn new(
         current_player_number: PlayerNumber,
+        number_of_players: usize,
         player_hands: [Hand; consts::MAX_PLAYERS],
-        player_is_out: [bool; consts::MAX_PLAYERS],
+        player_finish_order: [usize; consts::MAX_PLAYERS],
         trick: Trick,
     ) -> FullInformationGameState {
         FullInformationGameState {
             current_player_number,
+            number_of_players,
             player_hands,
-            player_is_out,
+            player_finish_order,
             trick,
         }
     }
 }
 
 pub fn get_next_active_player(
-    player_is_out: &[bool; consts::MAX_PLAYERS],
+    player_finish_order: &[usize; consts::MAX_PLAYERS],
     current_player_number: PlayerNumber,
-) -> Result<PlayerNumber, &'static str> {
+) -> Option<PlayerNumber> {
     for i in 1..consts::MAX_PLAYERS {
         let next_player_number = (current_player_number + i) % consts::MAX_PLAYERS;
-        if !player_is_out[next_player_number] {
-            return Ok(next_player_number);
+        if player_finish_order[next_player_number] == 0 {
+            return Some(next_player_number);
         }
     }
-    Err("No active players left")
+    None
 }
 
 pub fn update_full_information_game_state(
     game_state: &mut FullInformationGameState,
     player_move: &Move,
-) {
+) -> bool {
     match player_move {
         Move::Play(play) => {
             // Update the player's hand
@@ -154,40 +160,41 @@ pub fn update_full_information_game_state(
             // Check if the player is out
             if game_state.player_hands[game_state.current_player_number]
                 .iter()
-                .sum::<u8>()
+                .sum::<usize>()
                 == 0
             {
-                game_state.player_is_out[game_state.current_player_number] = true;
+                game_state.player_finish_order[game_state.current_player_number] =
+                    game_state.player_finish_order.iter().max().unwrap() + 1;
             }
 
             // Reset the has_passed array
-            game_state.trick.has_passed = [true; consts::MAX_PLAYERS];
-            for (player_number, is_out) in game_state.player_is_out.iter().enumerate() {
-                if !*is_out {
-                    game_state.trick.has_passed[player_number] = false;
-                }
-            }
+            game_state.trick.has_passed = [false; consts::MAX_PLAYERS];
 
             // Update the player number
-            for i in 1..consts::MAX_PLAYERS {
-                let next_player_number =
-                    (game_state.current_player_number + i) % consts::MAX_PLAYERS;
-                if !game_state.player_is_out[next_player_number] {
-                    game_state.current_player_number = next_player_number;
-                    break;
+            match get_next_active_player(
+                &game_state.player_finish_order,
+                game_state.current_player_number,
+            ) {
+                Some(player_number) => {
+                    game_state.current_player_number = player_number;
+                    return false;
                 }
-            }
+                None => return true,
+            };
         }
         Move::Pass => {
             // Update the has_passed array
             game_state.trick.has_passed[game_state.current_player_number] = true;
 
             // Check if all players have passed (except the top set player)
-            let mut all_players_passed = true;
-            for (player, has_passed) in game_state.trick.has_passed.iter().enumerate() {
+            let mut all_players_passed = true; // If this player is still in
+            for player in 0..game_state.number_of_players {
+                let has_passed = game_state.trick.has_passed[player];
+
                 if player == game_state.trick.top_set.unwrap().player {
                     continue;
                 }
+
                 if !has_passed {
                     all_players_passed = false;
                     break;
@@ -198,12 +205,7 @@ pub fn update_full_information_game_state(
                 // Start a new trick
 
                 // Reset the has_passed array
-                game_state.trick.has_passed = [true; consts::MAX_PLAYERS];
-                for (player_number, is_out) in game_state.player_is_out.iter().enumerate() {
-                    if !*is_out {
-                        game_state.trick.has_passed[player_number] = false;
-                    }
-                }
+                game_state.trick.has_passed = [false; consts::MAX_PLAYERS];
 
                 let trick_winner = game_state
                     .trick
@@ -216,26 +218,31 @@ pub fn update_full_information_game_state(
                 game_state.trick.top_set = None;
 
                 // Update the player number
-                if game_state.player_is_out[trick_winner] {
+                if !game_state.player_finish_order[trick_winner] == 0 {
                     // Player still in after trick winner starts the next trick
-                    for i in 1..consts::MAX_PLAYERS {
-                        let next_player_number = (trick_winner + i) % consts::MAX_PLAYERS;
-                        if !game_state.player_is_out[next_player_number] {
-                            game_state.current_player_number = next_player_number;
-                            break;
+                    match get_next_active_player(
+                        &game_state.player_finish_order,
+                        game_state.current_player_number,
+                    ) {
+                        Some(player_number) => {
+                            game_state.current_player_number = player_number;
+                            return false;
                         }
-                    }
+                        None => return true,
+                    };
                 } else {
                     // Trick winner starts the next trick
                     game_state.current_player_number = trick_winner;
+                    return false;
                 }
             } else {
                 // Update the player number
                 game_state.current_player_number = get_next_active_player(
-                    &game_state.player_is_out,
+                    &game_state.player_finish_order,
                     game_state.current_player_number,
                 )
                 .unwrap();
+                return false;
             }
         }
     }
@@ -259,7 +266,7 @@ pub fn update_incomplete_information_game_state(
 
             // Update hand sizes
             game_state.hand_sizes[game_state.current_player_number] -=
-                (play.num_non_wilds + play.num_wilds) as u16;
+                (play.num_non_wilds + play.num_wilds) as usize;
 
             // Update the top set
             game_state.trick.top_set = Some(TopSet {
@@ -270,26 +277,23 @@ pub fn update_incomplete_information_game_state(
 
             // Check if the player is out
             if game_state.hand_sizes[game_state.current_player_number] == 0 {
-                game_state.player_is_out[game_state.current_player_number] = true;
+                game_state.player_finish_order[game_state.current_player_number] =
+                    game_state.player_finish_order.iter().max().unwrap() + 1;
             }
 
             // Reset the has_passed array
-            game_state.trick.has_passed = [true; consts::MAX_PLAYERS];
-            for (player_number, is_out) in game_state.player_is_out.iter().enumerate() {
-                if !*is_out {
-                    game_state.trick.has_passed[player_number] = false;
-                }
-            }
+            game_state.trick.has_passed = [false; consts::MAX_PLAYERS];
 
             // Update the player number
-            for i in 1..consts::MAX_PLAYERS {
-                let next_player_number =
-                    (game_state.current_player_number + i) % consts::MAX_PLAYERS;
-                if !game_state.player_is_out[next_player_number] {
-                    game_state.current_player_number = next_player_number;
-                    break;
+            match get_next_active_player(
+                &game_state.player_finish_order,
+                game_state.current_player_number,
+            ) {
+                Some(player_number) => {
+                    game_state.current_player_number = player_number;
                 }
-            }
+                None => {}
+            };
         }
         Move::Pass => {
             // Update the has_passed array
@@ -311,12 +315,7 @@ pub fn update_incomplete_information_game_state(
                 // Start a new trick
 
                 // Reset the has_passed array
-                game_state.trick.has_passed = [true; consts::MAX_PLAYERS];
-                for (player_number, is_out) in game_state.player_is_out.iter().enumerate() {
-                    if !*is_out {
-                        game_state.trick.has_passed[player_number] = false;
-                    }
-                }
+                game_state.trick.has_passed = [false; consts::MAX_PLAYERS];
 
                 let trick_winner = game_state
                     .trick
@@ -325,19 +324,21 @@ pub fn update_incomplete_information_game_state(
                     .expect("All players have passed on an empty top set!")
                     .player; // TODO: fix this
 
-                // Reset the card in play
+                // Reset the top set
                 game_state.trick.top_set = None;
 
                 // Update the player number
-                if game_state.player_is_out[trick_winner] {
+                if !game_state.player_finish_order[trick_winner] == 0 {
                     // Player still in after trick winner starts the next trick
-                    for i in 1..consts::MAX_PLAYERS {
-                        let next_player_number = (trick_winner + i) % consts::MAX_PLAYERS;
-                        if !game_state.player_is_out[next_player_number] {
-                            game_state.current_player_number = next_player_number;
-                            break;
+                    match get_next_active_player(
+                        &game_state.player_finish_order,
+                        game_state.current_player_number,
+                    ) {
+                        Some(player_number) => {
+                            game_state.current_player_number = player_number;
                         }
-                    }
+                        None => {}
+                    };
                 } else {
                     // Trick winner starts the next trick
                     game_state.current_player_number = trick_winner;
@@ -345,7 +346,7 @@ pub fn update_incomplete_information_game_state(
             } else {
                 // Update the player number
                 game_state.current_player_number = get_next_active_player(
-                    &game_state.player_is_out,
+                    &game_state.player_finish_order,
                     game_state.current_player_number,
                 )
                 .unwrap();
@@ -409,7 +410,7 @@ pub fn get_available_moves(hand: Hand, top_set: Option<TopSet>) -> Vec<Move> {
 
 pub fn generate_random_initial_game_state(
     num_players: usize,
-    deck: [u16; consts::MAX_CARD_ORDINALITY],
+    deck: [usize; consts::MAX_CARD_ORDINALITY],
     rng: &mut SmallRng,
 ) -> FullInformationGameState {
     // Split the deck into equal parts for each player
@@ -459,12 +460,7 @@ pub fn generate_random_initial_game_state(
         array_hands[i] = *hand;
     }
 
-    let mut player_is_out = [true; consts::MAX_PLAYERS];
-    for (i, hand) in hands.iter().enumerate() {
-        player_is_out[i] = hand.iter().sum::<u8>() == 0;
-    }
-
-    FullInformationGameState::new(0, array_hands, player_is_out, trick)
+    FullInformationGameState::new(0, num_players, array_hands, [0; consts::MAX_PLAYERS], trick)
 }
 
 pub fn create_incomplete_information_game_state(
@@ -477,7 +473,7 @@ pub fn create_incomplete_information_game_state(
     for i in 0..full_information_game_state.player_hands.len() {
         let hand = &full_information_game_state.player_hands[i];
         for j in 0..consts::MAX_CARD_ORDINALITY {
-            hand_sizes[i] += hand[j] as u16;
+            hand_sizes[i] += hand[j] as usize;
             if i != perspective_player_number {
                 opponent_cards[j] += hand[j]
             }

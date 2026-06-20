@@ -22,6 +22,7 @@ struct SearchConfig {
     puct_rollouts_per_leaf: usize,
     exploration_factor: f32,
     temperature: f32,
+    greediness: f32,
 }
 
 impl SearchConfig {
@@ -32,6 +33,7 @@ impl SearchConfig {
             puct_rollouts_per_leaf: 200,
             exploration_factor: 2.0,
             temperature: 0.1,
+            greediness: 1.5,
         }
     }
 
@@ -42,6 +44,7 @@ impl SearchConfig {
             puct_rollouts_per_leaf: 200,
             exploration_factor: 2.0,
             temperature: temperature_schedule,
+            greediness: 1.5,
         }
     }
 }
@@ -141,9 +144,9 @@ fn id_to_move(id: MoveID, hand: game::Hand) -> game::Move {
 
     let available_to_play = hand[rank_to_play as usize];
     let wilds = hand[0];
-    debug_assert!(available_to_play + wilds >= num_to_play as u8);
-    let wilds_to_use = (num_to_play as u8).saturating_sub(available_to_play);
-    let non_wilds_to_use = num_to_play as u8 - wilds_to_use;
+    debug_assert!(available_to_play + wilds >= num_to_play);
+    let wilds_to_use = num_to_play.saturating_sub(available_to_play);
+    let non_wilds_to_use = num_to_play - wilds_to_use;
 
     return game::Move::Play(game::Play {
         rank: rank_to_play,
@@ -253,7 +256,11 @@ fn full_tree_evaluation<H: ActionPriorHeuristic>(
             let mut hypothetical_world = world.clone();
             let player_hand =
                 hypothetical_world.player_hands[hypothetical_world.current_player_number];
-            match update_world(&mut hypothetical_world, id_to_move(action_id, player_hand)) {
+            match update_world(
+                &mut hypothetical_world,
+                id_to_move(action_id, player_hand),
+                search_context,
+            ) {
                 Some(player_values) => {
                     // Just directly update the action value matrix
                     for player_id in 0..consts::MAX_PLAYERS {
@@ -304,9 +311,9 @@ fn full_tree_evaluation<H: ActionPriorHeuristic>(
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 struct NormalizedIncompleteInformation {
-    player_hand: [u8; consts::MAX_CARD_ORDINALITY],
-    opponent_cards: [u8; consts::MAX_CARD_ORDINALITY],
-    hand_sizes: [u16; consts::MAX_PLAYERS],
+    player_hand: [usize; consts::MAX_CARD_ORDINALITY],
+    opponent_cards: [usize; consts::MAX_CARD_ORDINALITY],
+    hand_sizes: [usize; consts::MAX_PLAYERS],
     trick: game::Trick,
 }
 
@@ -469,7 +476,7 @@ fn puct_rollout<H: ActionPriorHeuristic>(
         if first_action.is_none() {
             first_action = Some(selected_action);
         }
-        match update_world(&mut world, action_move) {
+        match update_world(&mut world, action_move, search_context) {
             Some(player_values) => {
                 // First update the stats for all the nodes we visited
                 for (selected_action, key) in nodes_to_update {
@@ -545,12 +552,78 @@ fn get_possible_worlds<H: ActionPriorHeuristic>(
     search_context: &mut SearchContext<H>,
 ) -> Vec<(game::FullInformationGameState, f32)> {
     // Needs to return normalized prob scores
-    Vec::new()
+    let probability_score = 1.0 / num_worlds as f32;
+
+    let mut outputs = Vec::new();
+
+    let mut player_hands = [[0; consts::MAX_CARD_ORDINALITY]; consts::MAX_PLAYERS];
+    player_hands[incomplete_information_state.perspective_player_number] =
+        incomplete_information_state.player_hand;
+
+    let mut player_constraints = [0; consts::MAX_PLAYERS - 1];
+    let mut compressed_index = 0;
+    for original_index in 0..consts::MAX_PLAYERS {
+        if original_index == incomplete_information_state.perspective_player_number {
+            continue;
+        }
+        player_constraints[compressed_index] =
+            incomplete_information_state.hand_sizes[original_index];
+        compressed_index += 1;
+    }
+
+    let rank_constraints = incomplete_information_state.opponent_cards;
+
+    for _ in 0..num_worlds {
+        let mut world_hands = player_hands.clone();
+
+        let generated_state = crate::world::greedy_stars_and_bars::<15, 18>(
+            player_constraints,
+            rank_constraints,
+            &mut search_context.rng,
+        );
+
+        let mut original_index = 0;
+        for compressed_index in 0..(consts::MAX_PLAYERS - 1) {
+            if original_index == incomplete_information_state.perspective_player_number {
+                original_index += 1
+            }
+            for card_rank in 0..consts::MAX_CARD_ORDINALITY {
+                world_hands[original_index][card_rank] =
+                    generated_state[compressed_index][card_rank];
+            }
+            original_index += 1;
+        }
+
+        let state = FullInformationGameState {
+            current_player_number: incomplete_information_state.current_player_number,
+            player_hands: world_hands,
+            player_is_out: incomplete_information_state.player_is_out,
+            trick: incomplete_information_state.trick,
+        };
+        outputs.push((state, probability_score));
+    }
+
+    return outputs;
 }
 
-fn update_world(
+fn placements_to_value(
+    placements: [usize; consts::MAX_PLAYERS],
+    num_players: usize,
+    greediness: f32,
+) -> [f32; consts::MAX_PLAYERS] {
+    let mut values = [0.0; consts::MAX_PLAYERS];
+    for active_player in 0..num_players {
+        values[active_player] =
+            (1.0 - (placements[active_player] as f32 / (num_players - 1) as f32)).powf(greediness);
+    }
+    return values;
+}
+
+fn update_world<H: ActionPriorHeuristic>(
     world: &mut game::FullInformationGameState,
     player_move: game::Move,
+    search_context: &mut SearchContext<H>,
 ) -> Option<PlayerValues> {
+    // We need to update the full information game state. Then, if we have reached the end of the round, we need to return the values for the players.
     None
 }

@@ -199,8 +199,8 @@ def enumerate_states(
 
 
 if __name__ == "__main__":
-    row_constraints = [3, 4, 1, 1, 5]
-    col_constraints = [2, 5, 5, 1, 1]
+    row_constraints = [3, 4, 1, 3, 5]
+    col_constraints = [2, 5, 5, 2, 2]
 
     num_states = 0
     for state in enumerate_states(
