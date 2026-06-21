@@ -1,6 +1,6 @@
 use crate::consts;
 
-use rand::{rngs::SmallRng, Rng, RngExt};
+use rand::{rngs::SmallRng, RngExt};
 
 pub type PlayerNumber = usize;
 type CardRank = usize;
@@ -68,7 +68,7 @@ pub struct IncompleteInformationGameState {
     pub perspective_player_number: PlayerNumber,
     pub number_of_players: usize,
     pub player_hand: Hand,
-    pub opponent_cards: [usize; consts::MAX_CARD_ORDINALITY],
+    pub opponent_cards: Hand,
     pub player_finish_order: [usize; consts::MAX_PLAYERS],
     pub hand_sizes: [usize; consts::MAX_PLAYERS],
     pub trick: Trick,
@@ -483,9 +483,10 @@ pub fn create_incomplete_information_game_state(
     IncompleteInformationGameState::new(
         full_information_game_state.current_player_number,
         perspective_player_number,
+        full_information_game_state.number_of_players,
         full_information_game_state.player_hands[perspective_player_number],
         opponent_cards,
-        full_information_game_state.player_is_out,
+        full_information_game_state.player_finish_order,
         hand_sizes,
         full_information_game_state.trick,
     )
