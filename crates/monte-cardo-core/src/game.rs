@@ -1,20 +1,109 @@
-use crate::consts;
+use std::ops::{Add, Index, Sub, SubAssign};
 
 use rand::{rngs::SmallRng, RngExt};
 
-pub type PlayerNumber = usize;
-type CardRank = usize;
-pub type Hand = [usize; consts::MAX_CARD_ORDINALITY];
+use crate::consts;
+
+#[repr(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct PlayerID(usize);
+
+impl PlayerID {
+    #[inline]
+    pub fn new(id: usize) -> Self {
+        debug_assert!(id < consts::MAX_PLAYERS);
+        Self(id)
+    }
+
+    #[inline]
+    pub fn get(self) -> usize {
+        self.0
+    }
+}
+
+#[repr(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CardRank(usize);
+
+impl CardRank {
+    pub const WILD: CardRank = CardRank(0);
+
+    #[inline]
+    pub fn new(rank: usize) -> Self {
+        debug_assert!(rank < consts::MAX_CARD_ORDINALITY);
+        Self(rank)
+    }
+
+    #[inline]
+    pub fn get(self) -> usize {
+        self.0
+    }
+}
+
+pub const MAX_TOTAL_PLAY: usize = consts::MAX_CARD_NUMBER * 2;
+
+#[repr(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CardCount(usize);
+
+impl CardCount {
+    #[inline]
+    pub fn new(count: usize) -> Self {
+        debug_assert!(count < MAX_TOTAL_PLAY.0);
+        Self(count)
+    }
+
+    #[inline]
+    pub fn get(self) -> usize {
+        self.0
+    }
+}
+
+impl Add for CardCount {
+    type Output = CardCount;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        return CardCount(self.0 + rhs.0);
+    }
+}
+
+impl Sub for CardCount {
+    type Output = CardCount;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        debug_assert!(rhs.0 <= self.0);
+        return CardCount(self.0 - rhs.0);
+    }
+}
+
+impl SubAssign for CardCount {
+    fn sub_assign(&mut self, rhs: Self) {
+        debug_assert!(rhs.0 <= self.0);
+        self.0 -= rhs.0;
+    }
+}
+
+#[repr(transparent)]
+#[derive(Debug, Clone)]
+pub struct PlayerHand([CardCount; consts::MAX_CARD_ORDINALITY]);
+
+impl Index<CardRank> for PlayerHand {
+    type Output = CardCount;
+
+    fn index(&self, index: CardRank) -> &Self::Output {
+        return &self.0[index.get()];
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct Play {
     pub rank: CardRank,
-    pub num_non_wilds: usize,
-    pub num_wilds: usize,
+    pub num_non_wilds: CardCount,
+    pub num_wilds: CardCount,
 }
 
 impl Play {
-    pub fn new(rank: CardRank, num_wilds: usize, num_non_wilds: usize) -> Play {
+    pub fn new(rank: CardRank, num_wilds: CardCount, num_non_wilds: CardCount) -> Play {
         Play {
             rank,
             num_non_wilds,
@@ -32,13 +121,13 @@ pub enum Move {
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct TopSet {
-    pub player: PlayerNumber,
+    pub player: PlayerID,
     pub rank: CardRank,
-    pub number: usize,
+    pub number: CardCount,
 }
 
 impl TopSet {
-    pub fn new(player: PlayerNumber, rank: CardRank, number: usize) -> TopSet {
+    pub fn new(player: PlayerID, rank: CardRank, number: CardCount) -> TopSet {
         TopSet {
             player,
             rank,
@@ -62,13 +151,13 @@ impl Trick {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct IncompleteInformationGameState {
-    pub current_player_number: PlayerNumber,
-    pub perspective_player_number: PlayerNumber,
+    pub current_player_number: PlayerID,
+    pub perspective_player_number: PlayerID,
     pub number_of_players: usize,
-    pub player_hand: Hand,
-    pub opponent_cards: Hand,
+    pub player_hand: PlayerHand,
+    pub opponent_cards: PlayerHand,
     pub player_finish_order: [usize; consts::MAX_PLAYERS],
     pub hand_sizes: [usize; consts::MAX_PLAYERS],
     pub trick: Trick,
@@ -76,11 +165,11 @@ pub struct IncompleteInformationGameState {
 
 impl IncompleteInformationGameState {
     fn new(
-        current_player_number: PlayerNumber,
-        perspective_player_number: PlayerNumber,
+        current_player_number: PlayerID,
+        perspective_player_number: PlayerID,
         number_of_players: usize,
-        player_hand: Hand,
-        opponent_cards: [usize; consts::MAX_CARD_ORDINALITY],
+        player_hand: PlayerHand,
+        opponent_cards: PlayerHand,
         player_finish_order: [usize; consts::MAX_PLAYERS],
         hand_sizes: [usize; consts::MAX_PLAYERS],
         trick: Trick,
@@ -98,21 +187,20 @@ impl IncompleteInformationGameState {
     }
 }
 
-// TODO: Maybe add a tracker for the number of players so that we don't have to iterate as much
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct FullInformationGameState {
-    pub current_player_number: PlayerNumber,
+    pub current_player_number: PlayerID,
     pub number_of_players: usize,
-    pub player_hands: [Hand; consts::MAX_PLAYERS],
+    pub player_hands: [PlayerHand; consts::MAX_PLAYERS],
     pub player_finish_order: [usize; consts::MAX_PLAYERS],
     pub trick: Trick,
 }
 
 impl FullInformationGameState {
     fn new(
-        current_player_number: PlayerNumber,
+        current_player_number: PlayerID,
         number_of_players: usize,
-        player_hands: [Hand; consts::MAX_PLAYERS],
+        player_hands: [PlayerHand; consts::MAX_PLAYERS],
         player_finish_order: [usize; consts::MAX_PLAYERS],
         trick: Trick,
     ) -> FullInformationGameState {
@@ -128,12 +216,12 @@ impl FullInformationGameState {
 
 pub fn get_next_active_player(
     player_finish_order: &[usize; consts::MAX_PLAYERS],
-    current_player_number: PlayerNumber,
-) -> Option<PlayerNumber> {
+    current_player_number: PlayerID,
+) -> Option<PlayerID> {
     for i in 1..consts::MAX_PLAYERS {
-        let next_player_number = (current_player_number + i) % consts::MAX_PLAYERS;
+        let next_player_number = (current_player_number.get() + i) % consts::MAX_PLAYERS;
         if player_finish_order[next_player_number] == 0 {
-            return Some(next_player_number);
+            return Some(PlayerID::new(next_player_number));
         }
     }
     None
@@ -146,8 +234,9 @@ pub fn update_full_information_game_state(
     match player_move {
         Move::Play(play) => {
             // Update the player's hand
-            game_state.player_hands[game_state.current_player_number][0] -= play.num_wilds;
-            game_state.player_hands[game_state.current_player_number][play.rank] -=
+            game_state.player_hands[game_state.current_player_number.get()][CardRank::WILD] -=
+                play.num_wilds;
+            game_state.player_hands[game_state.current_player_number.get()][play.rank] -=
                 play.num_non_wilds;
 
             // Update the top set

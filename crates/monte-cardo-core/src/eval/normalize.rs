@@ -1,9 +1,11 @@
 use crate::consts;
 use crate::game;
 
-// TODO: We can also perform an additional simplification in our normalization by eliminating ordinalities of cards that have already all been played.
-// If all of the 1s have been played, for example, then 2s are the new ones, 3s are the new twos, and so on and so forth.
-// Not only will this reduce the number of entries in our PUCT lookup, it will also simplify the learning for any network that we train.
+// TODO: Create feature branch for card rank compression. The card rank
+// compression would improve the performance and reliability of PUCT, and reduce
+// the learning load of the model by skipping eliminated ranks of cards. Then,
+// the model will not have to learn that once all of the 1s are gone, 2s would
+// function as the new 1s, and so on and so forth.
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct NormalizedIncompleteInformation {
@@ -80,6 +82,33 @@ fn normalize_trick(
     }
 }
 
+// pub fn normalize_hands(
+//     player_hand: game::Hand,
+//     opponent_cards: game::Hand,
+// ) -> (game::Hand, game::Hand) {
+//     // We need to compress all of the card ordinalities upwards by ignoring
+//     // ordinalities with 0 count. We will ignore wilds because those have a
+//     // special function, and so would not result in a comparable state.
+//     let mut normalized_player_hand = [0; consts::MAX_CARD_ORDINALITY];
+//     let mut normalized_opponent_cards = [0; consts::MAX_CARD_ORDINALITY];
+//     normalized_player_hand[0] = player_hand[0];
+//     normalized_opponent_cards[0] = opponent_cards[0];
+
+//     let mut writing_index = 1;
+//     for reading_index in 1..consts::MAX_CARD_ORDINALITY {
+//         if player_hand[reading_index] + opponent_cards[reading_index] == 0 {
+//             continue;
+//         }
+
+//         normalized_player_hand[writing_index] = player_hand[reading_index];
+//         normalized_opponent_cards[writing_index] = opponent_cards[reading_index];
+
+//         writing_index += 1;
+//     }
+
+//     (normalized_player_hand, normalized_opponent_cards)
+// }
+
 pub fn normalize_incomplete_information_state(
     incomplete_information_state: game::IncompleteInformationGameState,
 ) -> NormalizedIncompleteInformation {
@@ -96,6 +125,11 @@ pub fn normalize_incomplete_information_state(
         incomplete_information_state.current_player_number,
         incomplete_information_state.number_of_players,
     );
+
+    // let (normalized_player_hand, normalized_opponent_cards) = normalize_hands(
+    //     incomplete_information_state.player_hand,
+    //     incomplete_information_state.opponent_cards,
+    // );
 
     NormalizedIncompleteInformation {
         number_of_players: incomplete_information_state.number_of_players,

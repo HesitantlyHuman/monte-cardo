@@ -1,20 +1,34 @@
 use rand_distr::weighted::WeightedAliasIndex;
 use rand_distr::Distribution;
+use thiserror::Error;
 
 use crate::consts;
 use crate::game;
 
-use crate::eval::actions::{create_valid_action_mask, id_to_move, ActionMask, MoveID, NUM_ACTIONS};
+use crate::eval::actions::{ActionMask, MoveID, MoveIDError, NUM_ACTIONS};
 use crate::eval::config::{ActionPriorHeuristic, SearchConfig, SearchContext};
 use crate::eval::puct::{puct_rollout, ActionProbabilities};
 
-pub type PlayerValues = [f32; consts::MAX_PLAYERS];
-pub type ActionValueMatrix = [PlayerValues; NUM_ACTIONS];
+#[repr(transparent)]
+#[derive(Debug, Clone)]
+pub struct PlayerValues([f32; consts::MAX_PLAYERS]);
+
+#[repr(transparent)]
+#[derive(Debug, Clone)]
+pub struct ActionValueMatrix([[f32; consts::MAX_PLAYERS]; NUM_ACTIONS]);
+
+#[derive(Error, Debug)]
+pub enum EvaluationError {
+    #[error("There are no valid actions from the given game state")]
+    NoValidActions,
+    #[error("Failed to convert to or from a MoveID: {0}")]
+    MoveIDError(#[from] MoveIDError),
+}
 
 fn choose_best_action<H: ActionPriorHeuristic>(
     incomplete_information_state: game::IncompleteInformationGameState,
     heuristic: &mut H,
-) -> game::Move {
+) -> Result<game::Move, EvaluationError> {
     debug_assert!(
         incomplete_information_state.current_player_number
             == incomplete_information_state.perspective_player_number
@@ -23,23 +37,21 @@ fn choose_best_action<H: ActionPriorHeuristic>(
     let search_config = SearchConfig::inference();
     let mut search_context = SearchContext::new(heuristic, search_config);
     let (action_values, action_mask) =
-        full_tree_evaluation(incomplete_information_state, &mut search_context, 0);
+        full_tree_evaluation(incomplete_information_state, &mut search_context, 0)?;
 
-    return id_to_move(
-        best_action_from_values(
-            action_values,
-            action_mask,
-            incomplete_information_state.current_player_number,
-        ),
-        incomplete_information_state.player_hand,
-    );
+    return Ok(best_action_from_values(
+        action_values,
+        action_mask,
+        incomplete_information_state.current_player_number,
+    )?
+    .to_move(incomplete_information_state.player_hand)?);
 }
 
 fn best_action_from_values(
     action_values: ActionValueMatrix,
     action_mask: ActionMask,
     player: game::PlayerNumber,
-) -> MoveID {
+) -> Result<MoveID, EvaluationError> {
     let mut best_action = None;
     let mut best_action_value = f32::NEG_INFINITY;
 
@@ -56,7 +68,10 @@ fn best_action_from_values(
         }
     }
 
-    best_action.expect("No valid actions found!")
+    match best_action {
+        None => return Err(EvaluationError::NoValidActions),
+        Some(id) => return Ok(MoveID::new(id)),
+    }
 }
 
 /// Returns a full tree evaluation of the current incomplete information state.
@@ -68,7 +83,7 @@ pub fn full_tree_evaluation<H: ActionPriorHeuristic>(
     incomplete_information_state: game::IncompleteInformationGameState,
     search_context: &mut SearchContext<H>,
     current_depth: usize,
-) -> (ActionValueMatrix, ActionMask) {
+) -> Result<(ActionValueMatrix, ActionMask), EvaluationError> {
     let possible_worlds_and_probs = get_possible_worlds(
         incomplete_information_state,
         search_context.config.num_worlds,
@@ -76,12 +91,14 @@ pub fn full_tree_evaluation<H: ActionPriorHeuristic>(
     );
 
     let mut action_value_matrix = [[0.0; consts::MAX_PLAYERS]; NUM_ACTIONS];
-    let valid_action_matrix = create_valid_action_mask(incomplete_information_state);
+    let valid_action_matrix = ActionMask::from_incomplete_information(incomplete_information_state);
 
     for (world, world_probability) in possible_worlds_and_probs {
         for action_id in 0..NUM_ACTIONS {
+            let action_id = MoveID::new(action_id);
+
             // Ignore actions that the current player cannot take.
-            if !valid_action_matrix[action_id] {
+            if !valid_action_matrix[action_id.get()] {
                 continue;
             }
 
@@ -90,14 +107,14 @@ pub fn full_tree_evaluation<H: ActionPriorHeuristic>(
                 hypothetical_world.player_hands[hypothetical_world.current_player_number];
             match update_world(
                 &mut hypothetical_world,
-                id_to_move(action_id, player_hand),
+                action_id.to_move(player_hand)?,
                 search_context,
             ) {
                 Some(player_values) => {
                     // If the game has finished and we have true player values,
                     // we can just directly update the action value matrix
                     for player_id in 0..consts::MAX_PLAYERS {
-                        action_value_matrix[action_id][player_id] +=
+                        action_value_matrix[action_id.get()][player_id] +=
                             world_probability * player_values[player_id];
                     }
                 }
@@ -111,13 +128,13 @@ pub fn full_tree_evaluation<H: ActionPriorHeuristic>(
                     // Select our evaluation method depending on depth
                     let (next_value_matrix, valid_next_actions) =
                         if current_depth + 1 >= search_context.config.full_tree_depth {
-                            puct_evaluation(current_player_information, search_context)
+                            puct_evaluation(current_player_information, search_context)?
                         } else {
                             full_tree_evaluation(
                                 current_player_information,
                                 search_context,
                                 current_depth + 1,
-                            )
+                            )?
                         };
                     // Update the value matrix according to the likelihood of
                     // the player making various decisions, as estimated by the
@@ -130,7 +147,7 @@ pub fn full_tree_evaluation<H: ActionPriorHeuristic>(
                     );
                     for next_action_id in 0..NUM_ACTIONS {
                         for player_id in 0..consts::MAX_PLAYERS {
-                            action_value_matrix[action_id][player_id] += next_value_matrix
+                            action_value_matrix[action_id.get()][player_id] += next_value_matrix
                                 [next_action_id][player_id]
                                 * action_probabilities[next_action_id]
                                 * world_probability;
@@ -141,7 +158,7 @@ pub fn full_tree_evaluation<H: ActionPriorHeuristic>(
         }
     }
 
-    return (action_value_matrix, valid_action_matrix);
+    return Ok((action_value_matrix, valid_action_matrix));
 }
 
 /// Runs a full PUCT rollout evalution of the current incomplete information state.
@@ -152,7 +169,7 @@ pub fn full_tree_evaluation<H: ActionPriorHeuristic>(
 fn puct_evaluation<H: ActionPriorHeuristic>(
     incomplete_information_state: game::IncompleteInformationGameState,
     search_context: &mut SearchContext<H>,
-) -> (ActionValueMatrix, ActionMask) {
+) -> Result<(ActionValueMatrix, ActionMask), EvaluationError> {
     let (possible_worlds, world_probabilities): (Vec<game::FullInformationGameState>, Vec<f32>) =
         get_possible_worlds(
             incomplete_information_state,
@@ -172,9 +189,9 @@ fn puct_evaluation<H: ActionPriorHeuristic>(
     for _ in 0..search_context.config.puct_rollouts_per_leaf {
         let possible_world = possible_worlds[dist.sample(&mut search_context.rng)];
         let (first_move, final_values) = puct_rollout(possible_world, search_context);
-        action_visits[first_move] += 1;
+        action_visits[first_move.get()] += 1;
         for player_index in 0..consts::MAX_PLAYERS {
-            action_value_matrix[first_move][player_index] += final_values[player_index];
+            action_value_matrix[first_move.get()][player_index] += final_values[player_index];
         }
     }
 
@@ -188,10 +205,10 @@ fn puct_evaluation<H: ActionPriorHeuristic>(
         }
     }
 
-    return (
+    return Ok((
         action_value_matrix,
-        create_valid_action_mask(incomplete_information_state),
-    );
+        ActionMask::from_incomplete_information(incomplete_information_state),
+    ));
 }
 
 fn get_possible_worlds<H: ActionPriorHeuristic>(
