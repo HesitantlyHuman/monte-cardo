@@ -7,25 +7,27 @@ use crate::game;
 // the model will not have to learn that once all of the 1s are gone, 2s would
 // function as the new 1s, and so on and so forth.
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct NormalizedIncompleteInformation {
     pub number_of_players: usize,
-    pub player_hand: game::Hand,
-    pub opponent_cards: game::Hand,
-    pub hand_sizes: [usize; consts::MAX_PLAYERS],
+    pub player_hand: game::PlayerHand,
+    pub opponent_cards: game::PlayerHand,
+    pub hand_sizes: game::HandSizes,
     pub trick: game::Trick,
 }
 
 fn normalize_player_index(
-    absolute_player: usize,
+    absolute_player: game::PlayerID,
+    perspective_player: game::PlayerID,
     number_of_players: usize,
-    perspective_player: usize,
-) -> usize {
+) -> game::PlayerID {
     debug_assert!(number_of_players > 0);
-    debug_assert!(absolute_player < number_of_players);
-    debug_assert!(perspective_player < number_of_players);
+    debug_assert!(absolute_player.get() < number_of_players);
+    debug_assert!(perspective_player.get() < number_of_players);
 
-    (absolute_player + number_of_players - perspective_player) % number_of_players
+    return game::PlayerID::new(
+        (absolute_player.get() + number_of_players - perspective_player.get()) % number_of_players,
+    );
 }
 
 fn left_rotate_index(index: usize, rotation_length: usize, zero: usize) -> usize {
@@ -51,14 +53,14 @@ pub fn left_rotate_array<T: Copy>(
 }
 
 fn normalize_trick(
-    trick: game::Trick,
-    current_player_number: usize,
+    trick: &game::Trick,
+    current_player_number: game::PlayerID,
     number_of_players: usize,
 ) -> game::Trick {
     let top_set = match trick.top_set {
         Some(set) => {
             let normalized_player_number =
-                normalize_player_index(set.player, number_of_players, current_player_number);
+                normalize_player_index(set.player, current_player_number, number_of_players);
             Some(game::TopSet::new(
                 normalized_player_number,
                 set.rank,
@@ -70,15 +72,15 @@ fn normalize_trick(
 
     let mut rotated_has_passed = [false; consts::MAX_PLAYERS];
     left_rotate_array(
-        &trick.has_passed,
+        trick.has_passed.get(),
         &mut rotated_has_passed,
         number_of_players,
-        current_player_number,
+        current_player_number.get(),
     );
 
     game::Trick {
         top_set: top_set,
-        has_passed: rotated_has_passed,
+        has_passed: game::PlayerIndexed::new(rotated_has_passed),
     }
 }
 
@@ -110,18 +112,18 @@ fn normalize_trick(
 // }
 
 pub fn normalize_incomplete_information_state(
-    incomplete_information_state: game::IncompleteInformationGameState,
+    incomplete_information_state: &game::IncompleteInformationGameState,
 ) -> NormalizedIncompleteInformation {
     let mut rotated_hand_sizes = [0; consts::MAX_PLAYERS];
     left_rotate_array(
-        &incomplete_information_state.hand_sizes,
+        incomplete_information_state.hand_sizes.get(),
         &mut rotated_hand_sizes,
         incomplete_information_state.number_of_players,
-        incomplete_information_state.current_player_number,
+        incomplete_information_state.current_player_number.get(),
     );
 
     let normalized_trick = normalize_trick(
-        incomplete_information_state.trick,
+        &incomplete_information_state.trick,
         incomplete_information_state.current_player_number,
         incomplete_information_state.number_of_players,
     );
@@ -133,9 +135,9 @@ pub fn normalize_incomplete_information_state(
 
     NormalizedIncompleteInformation {
         number_of_players: incomplete_information_state.number_of_players,
-        player_hand: incomplete_information_state.player_hand,
-        opponent_cards: incomplete_information_state.opponent_cards,
-        hand_sizes: rotated_hand_sizes,
+        player_hand: incomplete_information_state.player_hand.clone(),
+        opponent_cards: incomplete_information_state.opponent_cards.clone(),
+        hand_sizes: game::HandSizes::new(rotated_hand_sizes),
         trick: normalized_trick,
     }
 }

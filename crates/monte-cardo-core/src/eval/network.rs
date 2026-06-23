@@ -1,5 +1,6 @@
 use crate::consts;
 use crate::eval::normalize::NormalizedIncompleteInformation;
+use crate::game::{CardRank, PlayerID};
 
 pub const MAX_TOTAL_PLAY: usize = consts::MAX_CARD_NUMBER * 2;
 
@@ -67,17 +68,17 @@ fn make_player_count_gates(number_of_players: usize) -> Vec<f32> {
     values
 }
 
-fn hand_to_card_matrix(hand: &crate::game::Hand) -> Vec<f32> {
+fn hand_to_card_matrix(hand: &crate::game::PlayerHand) -> Vec<f32> {
     let mut matrix = vec![-1.0; CARD_MATRIX_SIZE];
 
-    for rank in 0..consts::MAX_CARD_ORDINALITY {
+    for rank in CardRank::all() {
         debug_assert!(
-            hand[rank] <= consts::MAX_CARD_NUMBER,
+            hand[rank].get() <= consts::MAX_CARD_NUMBER,
             "A single rank has more cards than MAX_CARD_NUMBER"
         );
 
-        for card_index in 0..hand[rank] {
-            matrix[rank * consts::MAX_CARD_NUMBER + card_index] = 1.0;
+        for card_index in 0..hand[rank].get() {
+            matrix[rank.get() * consts::MAX_CARD_NUMBER + card_index] = 1.0;
         }
     }
 
@@ -189,25 +190,27 @@ pub fn prepare_network_inputs_from_normalized_incomplete_information(
     // 4–7. Top-set features.
     match state.trick.top_set {
         Some(top_set) => {
-            debug_assert!(top_set.rank < consts::MAX_CARD_ORDINALITY);
-            debug_assert!(top_set.number > 0);
-            debug_assert!(top_set.number <= MAX_TOTAL_PLAY);
-            debug_assert!(top_set.player < state.number_of_players);
+            debug_assert!(top_set.rank.get() < consts::MAX_CARD_ORDINALITY);
+            debug_assert!(top_set.number.get() > 0);
+            debug_assert!(top_set.number.get() <= MAX_TOTAL_PLAY);
+            debug_assert!(top_set.player.get() < state.number_of_players);
 
             // 4. Whether there is a top set.
             write_slice(&mut network_inputs, &mut cursor, &[1.0]);
 
             // 5. Top-set rank.
             let top_set_rank =
-                make_negative_one_hot(consts::MAX_CARD_ORDINALITY, Some(top_set.rank));
+                make_negative_one_hot(consts::MAX_CARD_ORDINALITY, Some(top_set.rank.get()));
             write_slice(&mut network_inputs, &mut cursor, &top_set_rank);
 
             // 6. Top-set number of cards.
-            let top_set_number = make_negative_one_hot(MAX_TOTAL_PLAY, Some(top_set.number - 1));
+            let top_set_number =
+                make_negative_one_hot(MAX_TOTAL_PLAY, Some(top_set.number.get() - 1));
             write_slice(&mut network_inputs, &mut cursor, &top_set_number);
 
             // 7. Top-set player / trick leader.
-            let top_set_player = make_negative_one_hot(consts::MAX_PLAYERS, Some(top_set.player));
+            let top_set_player =
+                make_negative_one_hot(consts::MAX_PLAYERS, Some(top_set.player.get()));
             write_slice(&mut network_inputs, &mut cursor, &top_set_player);
         }
         None => {
@@ -234,8 +237,8 @@ pub fn prepare_network_inputs_from_normalized_incomplete_information(
     // -1.0 means this player has not passed or the player slot is unused.
     let mut has_passed_features = vec![-1.0; consts::MAX_PLAYERS];
 
-    for player in 0..state.number_of_players {
-        has_passed_features[player] = binary_feature(state.trick.has_passed[player]);
+    for player in PlayerID::all_player_ids(state.number_of_players) {
+        has_passed_features[player.get()] = binary_feature(state.trick.has_passed[player]);
     }
 
     write_slice(&mut network_inputs, &mut cursor, &has_passed_features);
@@ -244,14 +247,14 @@ pub fn prepare_network_inputs_from_normalized_incomplete_information(
     //
     // -1.0 means the player is out or the player slot is unused.
     let absolute_hand_sizes =
-        absolute_hand_size_features(&state.hand_sizes, state.number_of_players);
+        absolute_hand_size_features(&state.hand_sizes.get(), state.number_of_players);
     write_slice(&mut network_inputs, &mut cursor, &absolute_hand_sizes);
 
     // 10. Proportional hand sizes, mapped to [-1, 1].
     //
     // -1.0 means the player is out or the player slot is unused.
     let proportional_hand_sizes =
-        proportional_hand_size_features(&state.hand_sizes, state.number_of_players);
+        proportional_hand_size_features(&state.hand_sizes.get(), state.number_of_players);
     write_slice(&mut network_inputs, &mut cursor, &proportional_hand_sizes);
 
     debug_assert_eq!(cursor, NETWORK_INPUTS_SIZE);

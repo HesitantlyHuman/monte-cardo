@@ -11,33 +11,40 @@ use crate::game;
 use crate::eval::actions::{ActionMask, MoveID, MoveIDError, NUM_ACTIONS};
 use crate::eval::config::{ActionPriorHeuristic, SearchConfig, SearchContext};
 use crate::eval::puct::{puct_rollout, ActionProbabilities};
-use crate::game::GameLogicError;
-use crate::game::PlayerID;
-use crate::game::PlayerIndexed;
+use crate::game::{CardCount, CardRank, GameLogicError, PlayerHand, PlayerID, PlayerIndexed};
 
 #[repr(transparent)]
 #[derive(Debug, Clone)]
 pub struct PlayerValues(PlayerIndexed<f32>);
 
 impl PlayerValues {
+    #[inline]
     pub fn new(values: PlayerIndexed<f32>) -> Self {
         return Self(values);
     }
 
+    #[inline]
     pub fn zeros() -> Self {
         return Self(PlayerIndexed::filled(0.0));
+    }
+
+    #[inline]
+    pub fn get(&self) -> &[f32; consts::MAX_PLAYERS] {
+        return self.0.get();
     }
 }
 
 impl Index<PlayerID> for PlayerValues {
     type Output = f32;
 
+    #[inline]
     fn index(&self, index: PlayerID) -> &Self::Output {
         return &self.0[index];
     }
 }
 
 impl IndexMut<PlayerID> for PlayerValues {
+    #[inline]
     fn index_mut(&mut self, index: PlayerID) -> &mut Self::Output {
         return &mut self.0[index];
     }
@@ -48,6 +55,7 @@ impl IndexMut<PlayerID> for PlayerValues {
 pub struct ActionValueMatrix([PlayerValues; NUM_ACTIONS]);
 
 impl ActionValueMatrix {
+    #[inline]
     pub fn zeros() -> Self {
         return Self(std::array::from_fn(|_| PlayerValues::zeros()));
     }
@@ -56,12 +64,14 @@ impl ActionValueMatrix {
 impl Index<MoveID> for ActionValueMatrix {
     type Output = PlayerValues;
 
+    #[inline]
     fn index(&self, index: MoveID) -> &Self::Output {
         return &self.0[index.get()];
     }
 }
 
 impl IndexMut<MoveID> for ActionValueMatrix {
+    #[inline]
     fn index_mut(&mut self, index: MoveID) -> &mut Self::Output {
         return &mut self.0[index.get()];
     }
@@ -75,6 +85,8 @@ pub enum EvaluationError {
     MoveIDError(#[from] MoveIDError),
     #[error("Error in the game logic: {0}")]
     GameLogicError(#[from] GameLogicError),
+    #[error("PUCT rollout failed to finish")]
+    RolloutError,
 }
 
 fn choose_best_action<H: ActionPriorHeuristic>(
@@ -239,7 +251,7 @@ fn puct_evaluation<H: ActionPriorHeuristic>(
 
     for _ in 0..search_context.config.puct_rollouts_per_leaf {
         let possible_world = &possible_worlds[dist.sample(&mut search_context.rng)];
-        let (first_move, final_values) = puct_rollout(possible_world, search_context);
+        let (first_move, final_values) = puct_rollout(possible_world, search_context)?;
         action_visits[first_move.get()] += 1;
         for player_id in PlayerID::all_player_ids(incomplete_information_state.number_of_players) {
             action_value_matrix[first_move][player_id] += final_values[player_id];
@@ -275,22 +287,26 @@ fn get_possible_worlds<H: ActionPriorHeuristic>(
 
     let mut outputs = Vec::new();
 
-    let mut player_hands = [[0; consts::MAX_CARD_ORDINALITY]; consts::MAX_PLAYERS];
-    player_hands[incomplete_information_state.perspective_player_number.get()] =
-        incomplete_information_state.player_hand;
+    let mut player_hands = PlayerIndexed::new(std::array::from_fn(|_| PlayerHand::empty()));
+    player_hands[incomplete_information_state.perspective_player_number] =
+        incomplete_information_state.player_hand.clone();
 
     let mut player_constraints = [0; consts::MAX_PLAYERS - 1];
     let mut compressed_index = 0;
-    for original_index in 0..incomplete_information_state.number_of_players {
-        if original_index == incomplete_information_state.perspective_player_number {
+    for original_player_id in
+        PlayerID::all_player_ids(incomplete_information_state.number_of_players)
+    {
+        if original_player_id == incomplete_information_state.perspective_player_number {
             continue;
         }
         player_constraints[compressed_index] =
-            incomplete_information_state.hand_sizes[original_index];
+            incomplete_information_state.hand_sizes[original_player_id];
         compressed_index += 1;
     }
 
-    let rank_constraints = incomplete_information_state.opponent_cards;
+    let rank_constraints = incomplete_information_state
+        .opponent_cards
+        .to_usize_counts();
 
     for _ in 0..num_worlds {
         let mut world_hands = player_hands.clone();
@@ -306,12 +322,14 @@ fn get_possible_worlds<H: ActionPriorHeuristic>(
 
         let mut original_index = 0;
         for compressed_index in 0..(consts::MAX_PLAYERS - 1) {
-            if original_index == incomplete_information_state.perspective_player_number {
+            if PlayerID::new(original_index)
+                == incomplete_information_state.perspective_player_number
+            {
                 original_index += 1
             }
-            for card_rank in 0..consts::MAX_CARD_ORDINALITY {
-                world_hands[original_index][card_rank] =
-                    generated_state[compressed_index][card_rank];
+            for card_rank in CardRank::all() {
+                world_hands[PlayerID::new(original_index)][card_rank] =
+                    CardCount::new(generated_state[compressed_index][card_rank.get()]);
             }
             original_index += 1;
         }
@@ -320,8 +338,8 @@ fn get_possible_worlds<H: ActionPriorHeuristic>(
             current_player_number: incomplete_information_state.current_player_number,
             number_of_players: incomplete_information_state.number_of_players,
             player_hands: world_hands,
-            player_finish_order: incomplete_information_state.player_finish_order,
-            trick: incomplete_information_state.trick,
+            player_placements: incomplete_information_state.player_placements.clone(),
+            trick: incomplete_information_state.trick.clone(),
         };
         outputs.push((state, probability_score));
     }

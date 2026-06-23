@@ -7,7 +7,7 @@ use crate::eval::normalize::NormalizedIncompleteInformation;
 use crate::eval::puct::{ActionProbabilities, PUCTNode};
 
 pub trait ActionPriorHeuristic {
-    fn action_priors(&mut self, state: NormalizedIncompleteInformation) -> ActionProbabilities;
+    fn action_priors(&mut self, state: &NormalizedIncompleteInformation) -> ActionProbabilities;
 }
 
 pub struct SearchConfig {

@@ -145,6 +145,15 @@ impl PlayerHand {
         return Self([CardCount::new(0); consts::MAX_CARD_ORDINALITY]);
     }
 
+    #[inline]
+    pub fn to_usize_counts(&self) -> [usize; consts::MAX_CARD_ORDINALITY] {
+        std::array::from_fn(|index| self.0[index].get())
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &CardCount> {
+        return self.0.iter();
+    }
+
     pub fn total_cards(&self) -> usize {
         return self.0.iter().map(|count| count.get()).sum();
     }
@@ -178,6 +187,11 @@ impl<T> PlayerIndexed<T> {
     #[inline]
     pub fn new(values: [T; consts::MAX_PLAYERS]) -> Self {
         return Self(values);
+    }
+
+    #[inline]
+    pub fn get(&self) -> &[T; consts::MAX_PLAYERS] {
+        return &self.0;
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &T> {
@@ -272,6 +286,11 @@ pub struct HandSizes(PlayerIndexed<usize>);
 
 impl HandSizes {
     #[inline]
+    pub fn new(values: [usize; consts::MAX_PLAYERS]) -> Self {
+        return Self(PlayerIndexed::new(values));
+    }
+
+    #[inline]
     pub fn empty() -> Self {
         return Self(PlayerIndexed::filled(0));
     }
@@ -282,8 +301,8 @@ impl HandSizes {
     }
 
     #[inline]
-    pub fn get(&self, player: PlayerID) -> usize {
-        return self.0[player];
+    pub fn get(&self) -> &[usize; consts::MAX_PLAYERS] {
+        return self.0.get();
     }
 
     #[inline]
@@ -295,6 +314,14 @@ impl HandSizes {
     pub fn remove_cards(&mut self, player: PlayerID, count: CardCount) {
         debug_assert!(self.0[player] >= count.get());
         self.0[player] -= count.get();
+    }
+}
+
+impl Index<PlayerID> for HandSizes {
+    type Output = usize;
+
+    fn index(&self, index: PlayerID) -> &Self::Output {
+        return &self.0[index];
     }
 }
 

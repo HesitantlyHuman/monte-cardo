@@ -108,9 +108,14 @@ impl MoveID {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct ActionMask([bool; NUM_ACTIONS]);
 
 impl ActionMask {
+    pub fn num_valid(&self) -> usize {
+        return self.0.iter().filter(|&&x| x).count();
+    }
+
     pub fn from_incomplete_information(
         incomplete_information: &IncompleteInformationGameState,
     ) -> Self {
