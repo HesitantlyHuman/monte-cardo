@@ -1,14 +1,37 @@
+use std::ops::Index;
+use std::ops::IndexMut;
+
 use crate::consts;
 use crate::game;
 
-use crate::eval::actions::{create_valid_action_mask, id_to_move, ActionMask, MoveID, NUM_ACTIONS};
+use crate::eval::actions::{ActionMask, MoveID, NUM_ACTIONS};
 use crate::eval::config::{ActionPriorHeuristic, SearchContext};
 use crate::eval::evaluate::{update_world, ActionValueMatrix, PlayerValues};
 use crate::eval::normalize::{
     left_rotate_array, normalize_incomplete_information_state, NormalizedIncompleteInformation,
 };
 
-pub type ActionProbabilities = [f32; NUM_ACTIONS];
+pub struct ActionProbabilities([f32; NUM_ACTIONS]);
+
+impl ActionProbabilities {
+    pub fn zeros() -> Self {
+        return Self([0.0; NUM_ACTIONS]);
+    }
+}
+
+impl Index<MoveID> for ActionProbabilities {
+    type Output = f32;
+
+    fn index(&self, index: MoveID) -> &Self::Output {
+        return &self.0[index.get()];
+    }
+}
+
+impl IndexMut<MoveID> for ActionProbabilities {
+    fn index_mut(&mut self, index: MoveID) -> &mut Self::Output {
+        return &mut self.0[index.get()];
+    }
+}
 
 pub struct PUCTNode {
     action_mask: ActionMask,
@@ -131,7 +154,7 @@ fn create_search_node<H: ActionPriorHeuristic>(
 /// corresponding to the action that was taken from input
 /// FullInformationGameState.
 pub fn puct_rollout<H: ActionPriorHeuristic>(
-    world: game::FullInformationGameState,
+    world: &game::FullInformationGameState,
     search_context: &mut SearchContext<H>,
 ) -> (MoveID, PlayerValues) {
     let mut world = world.clone();

@@ -37,7 +37,7 @@ impl MoveID {
         self.0
     }
 
-    pub fn from_move(game_move: game::Move) -> Result<Self, MoveIDError> {
+    pub fn from_move(game_move: &game::Move) -> Result<Self, MoveIDError> {
         match game_move {
             game::Move::Pass => Ok(Self(0)),
             game::Move::Play(game::Play {
@@ -45,7 +45,7 @@ impl MoveID {
                 num_non_wilds,
                 num_wilds,
             }) => {
-                let total_count = num_non_wilds + num_wilds;
+                let total_count = *num_non_wilds + *num_wilds;
                 debug_assert!(total_count > game::CardCount::new(0));
 
                 if total_count == game::CardCount::new(0)
@@ -62,7 +62,7 @@ impl MoveID {
         }
     }
 
-    pub fn to_move(self, current_hand: game::PlayerHand) -> Result<game::Move, MoveIDError> {
+    pub fn to_move(self, current_hand: &game::PlayerHand) -> Result<game::Move, MoveIDError> {
         if self.0 == 0 {
             return Ok(game::Move::Pass);
         }
@@ -102,20 +102,24 @@ impl MoveID {
             num_wilds: wilds_to_use,
         }));
     }
+
+    pub fn all() -> impl Iterator<Item = Self> {
+        return (0..NUM_ACTIONS).map(MoveID::new);
+    }
 }
 
 pub struct ActionMask([bool; NUM_ACTIONS]);
 
 impl ActionMask {
     pub fn from_incomplete_information(
-        incomplete_information: IncompleteInformationGameState,
+        incomplete_information: &IncompleteInformationGameState,
     ) -> Self {
         let mut valid_action_mask = [false; NUM_ACTIONS];
         for available_move in game::get_available_moves(
-            incomplete_information.player_hand,
+            &incomplete_information.player_hand,
             incomplete_information.trick.top_set,
         ) {
-            valid_action_mask[MoveID::from_move(available_move)
+            valid_action_mask[MoveID::from_move(&available_move)
                 .expect("get_available_moves returned an invalid output")
                 .get()] = true;
         }

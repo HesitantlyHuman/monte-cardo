@@ -1,3 +1,6 @@
+use std::ops::Index;
+use std::ops::IndexMut;
+
 use rand_distr::weighted::WeightedAliasIndex;
 use rand_distr::Distribution;
 use thiserror::Error;
@@ -8,14 +11,61 @@ use crate::game;
 use crate::eval::actions::{ActionMask, MoveID, MoveIDError, NUM_ACTIONS};
 use crate::eval::config::{ActionPriorHeuristic, SearchConfig, SearchContext};
 use crate::eval::puct::{puct_rollout, ActionProbabilities};
+use crate::game::GameLogicError;
+use crate::game::PlayerID;
+use crate::game::PlayerIndexed;
 
 #[repr(transparent)]
 #[derive(Debug, Clone)]
-pub struct PlayerValues([f32; consts::MAX_PLAYERS]);
+pub struct PlayerValues(PlayerIndexed<f32>);
+
+impl PlayerValues {
+    pub fn new(values: PlayerIndexed<f32>) -> Self {
+        return Self(values);
+    }
+
+    pub fn zeros() -> Self {
+        return Self(PlayerIndexed::filled(0.0));
+    }
+}
+
+impl Index<PlayerID> for PlayerValues {
+    type Output = f32;
+
+    fn index(&self, index: PlayerID) -> &Self::Output {
+        return &self.0[index];
+    }
+}
+
+impl IndexMut<PlayerID> for PlayerValues {
+    fn index_mut(&mut self, index: PlayerID) -> &mut Self::Output {
+        return &mut self.0[index];
+    }
+}
 
 #[repr(transparent)]
 #[derive(Debug, Clone)]
-pub struct ActionValueMatrix([[f32; consts::MAX_PLAYERS]; NUM_ACTIONS]);
+pub struct ActionValueMatrix([PlayerValues; NUM_ACTIONS]);
+
+impl ActionValueMatrix {
+    pub fn zeros() -> Self {
+        return Self(std::array::from_fn(|_| PlayerValues::zeros()));
+    }
+}
+
+impl Index<MoveID> for ActionValueMatrix {
+    type Output = PlayerValues;
+
+    fn index(&self, index: MoveID) -> &Self::Output {
+        return &self.0[index.get()];
+    }
+}
+
+impl IndexMut<MoveID> for ActionValueMatrix {
+    fn index_mut(&mut self, index: MoveID) -> &mut Self::Output {
+        return &mut self.0[index.get()];
+    }
+}
 
 #[derive(Error, Debug)]
 pub enum EvaluationError {
@@ -23,6 +73,8 @@ pub enum EvaluationError {
     NoValidActions,
     #[error("Failed to convert to or from a MoveID: {0}")]
     MoveIDError(#[from] MoveIDError),
+    #[error("Error in the game logic: {0}")]
+    GameLogicError(#[from] GameLogicError),
 }
 
 fn choose_best_action<H: ActionPriorHeuristic>(
@@ -37,41 +89,38 @@ fn choose_best_action<H: ActionPriorHeuristic>(
     let search_config = SearchConfig::inference();
     let mut search_context = SearchContext::new(heuristic, search_config);
     let (action_values, action_mask) =
-        full_tree_evaluation(incomplete_information_state, &mut search_context, 0)?;
+        full_tree_evaluation(incomplete_information_state.clone(), &mut search_context, 0)?;
 
     return Ok(best_action_from_values(
         action_values,
         action_mask,
         incomplete_information_state.current_player_number,
     )?
-    .to_move(incomplete_information_state.player_hand)?);
+    .to_move(&incomplete_information_state.player_hand)?);
 }
 
 fn best_action_from_values(
     action_values: ActionValueMatrix,
     action_mask: ActionMask,
-    player: game::PlayerNumber,
+    player: game::PlayerID,
 ) -> Result<MoveID, EvaluationError> {
     let mut best_action = None;
     let mut best_action_value = f32::NEG_INFINITY;
 
-    for action_id in 0..NUM_ACTIONS {
-        if !action_mask[action_id] {
+    for move_id in MoveID::all() {
+        if !action_mask[move_id] {
             continue;
         }
 
-        let value = action_values[action_id][player];
+        let value = action_values[move_id][player];
 
         if value > best_action_value {
-            best_action = Some(action_id);
+            best_action = Some(move_id);
             best_action_value = value;
         }
     }
 
-    match best_action {
-        None => return Err(EvaluationError::NoValidActions),
-        Some(id) => return Ok(MoveID::new(id)),
-    }
+    return best_action.ok_or_else(|| EvaluationError::NoValidActions);
 }
 
 /// Returns a full tree evaluation of the current incomplete information state.
@@ -85,36 +134,36 @@ pub fn full_tree_evaluation<H: ActionPriorHeuristic>(
     current_depth: usize,
 ) -> Result<(ActionValueMatrix, ActionMask), EvaluationError> {
     let possible_worlds_and_probs = get_possible_worlds(
-        incomplete_information_state,
+        &incomplete_information_state,
         search_context.config.num_worlds,
         search_context,
     );
 
-    let mut action_value_matrix = [[0.0; consts::MAX_PLAYERS]; NUM_ACTIONS];
-    let valid_action_matrix = ActionMask::from_incomplete_information(incomplete_information_state);
+    let mut action_value_matrix = ActionValueMatrix::zeros();
+    let valid_action_matrix =
+        ActionMask::from_incomplete_information(&incomplete_information_state);
 
     for (world, world_probability) in possible_worlds_and_probs {
         for action_id in 0..NUM_ACTIONS {
             let action_id = MoveID::new(action_id);
 
             // Ignore actions that the current player cannot take.
-            if !valid_action_matrix[action_id.get()] {
+            if !valid_action_matrix[action_id] {
                 continue;
             }
 
             let mut hypothetical_world = world.clone();
-            let player_hand =
-                hypothetical_world.player_hands[hypothetical_world.current_player_number];
-            match update_world(
-                &mut hypothetical_world,
-                action_id.to_move(player_hand)?,
-                search_context,
-            ) {
+            let player_move = action_id.to_move(
+                &hypothetical_world.player_hands[hypothetical_world.current_player_number],
+            )?;
+            match update_world(&mut hypothetical_world, player_move, search_context)? {
                 Some(player_values) => {
                     // If the game has finished and we have true player values,
                     // we can just directly update the action value matrix
-                    for player_id in 0..consts::MAX_PLAYERS {
-                        action_value_matrix[action_id.get()][player_id] +=
+                    for player_id in
+                        PlayerID::all_player_ids(incomplete_information_state.number_of_players)
+                    {
+                        action_value_matrix[action_id][player_id] +=
                             world_probability * player_values[player_id];
                     }
                 }
@@ -122,7 +171,7 @@ pub fn full_tree_evaluation<H: ActionPriorHeuristic>(
                     // If the game is not finished, we calculate the value
                     // matrix from the new postion, after updating the world.
                     let current_player_information = game::create_incomplete_information_game_state(
-                        hypothetical_world,
+                        &hypothetical_world,
                         hypothetical_world.current_player_number,
                     );
                     // Select our evaluation method depending on depth
@@ -140,14 +189,16 @@ pub fn full_tree_evaluation<H: ActionPriorHeuristic>(
                     // the player making various decisions, as estimated by the
                     // temperature.
                     let action_probabilities = value_to_probabilities(
-                        next_value_matrix,
-                        valid_next_actions,
+                        &next_value_matrix,
+                        &valid_next_actions,
                         hypothetical_world.current_player_number,
                         search_context.config.temperature,
                     );
-                    for next_action_id in 0..NUM_ACTIONS {
-                        for player_id in 0..consts::MAX_PLAYERS {
-                            action_value_matrix[action_id.get()][player_id] += next_value_matrix
+                    for next_action_id in MoveID::all() {
+                        for player_id in
+                            PlayerID::all_player_ids(incomplete_information_state.number_of_players)
+                        {
+                            action_value_matrix[action_id][player_id] += next_value_matrix
                                 [next_action_id][player_id]
                                 * action_probabilities[next_action_id]
                                 * world_probability;
@@ -172,47 +223,47 @@ fn puct_evaluation<H: ActionPriorHeuristic>(
 ) -> Result<(ActionValueMatrix, ActionMask), EvaluationError> {
     let (possible_worlds, world_probabilities): (Vec<game::FullInformationGameState>, Vec<f32>) =
         get_possible_worlds(
-            incomplete_information_state,
+            &incomplete_information_state,
             search_context.config.num_worlds,
             search_context,
         )
         .into_iter()
         .unzip();
 
-    let mut action_value_matrix = [[0.0; consts::MAX_PLAYERS]; NUM_ACTIONS];
+    let mut action_value_matrix = ActionValueMatrix::zeros();
     let mut action_visits = [0; NUM_ACTIONS];
 
-    // TODO: would it be a good idea to put the rng in the search context?
+    // TODO: Make this an EvaluationError
     let dist =
         WeightedAliasIndex::new(world_probabilities).expect("Failed to build random world index");
 
     for _ in 0..search_context.config.puct_rollouts_per_leaf {
-        let possible_world = possible_worlds[dist.sample(&mut search_context.rng)];
+        let possible_world = &possible_worlds[dist.sample(&mut search_context.rng)];
         let (first_move, final_values) = puct_rollout(possible_world, search_context);
         action_visits[first_move.get()] += 1;
-        for player_index in 0..consts::MAX_PLAYERS {
-            action_value_matrix[first_move.get()][player_index] += final_values[player_index];
+        for player_id in PlayerID::all_player_ids(incomplete_information_state.number_of_players) {
+            action_value_matrix[first_move][player_id] += final_values[player_id];
         }
     }
 
-    for action_id in 0..NUM_ACTIONS {
-        if action_visits[action_id] == 0 {
+    for action_id in MoveID::all() {
+        if action_visits[action_id.get()] == 0 {
             continue;
         }
 
-        for player_index in 0..consts::MAX_PLAYERS {
-            action_value_matrix[action_id][player_index] /= action_visits[action_id] as f32
+        for player_id in PlayerID::all_player_ids(incomplete_information_state.number_of_players) {
+            action_value_matrix[action_id][player_id] /= action_visits[action_id.get()] as f32
         }
     }
 
     return Ok((
         action_value_matrix,
-        ActionMask::from_incomplete_information(incomplete_information_state),
+        ActionMask::from_incomplete_information(&incomplete_information_state),
     ));
 }
 
 fn get_possible_worlds<H: ActionPriorHeuristic>(
-    incomplete_information_state: game::IncompleteInformationGameState,
+    incomplete_information_state: &game::IncompleteInformationGameState,
     num_worlds: usize,
     search_context: &mut SearchContext<H>,
 ) -> Vec<(game::FullInformationGameState, f32)> {
@@ -225,7 +276,7 @@ fn get_possible_worlds<H: ActionPriorHeuristic>(
     let mut outputs = Vec::new();
 
     let mut player_hands = [[0; consts::MAX_CARD_ORDINALITY]; consts::MAX_PLAYERS];
-    player_hands[incomplete_information_state.perspective_player_number] =
+    player_hands[incomplete_information_state.perspective_player_number.get()] =
         incomplete_information_state.player_hand;
 
     let mut player_constraints = [0; consts::MAX_PLAYERS - 1];
@@ -282,45 +333,45 @@ pub fn update_world<H: ActionPriorHeuristic>(
     world: &mut game::FullInformationGameState,
     player_move: game::Move,
     search_context: &mut SearchContext<H>,
-) -> Option<PlayerValues> {
+) -> Result<Option<PlayerValues>, EvaluationError> {
     // We need to update the full information game state. Then, if we have reached the end of the round, we need to return the values for the players.
-    match crate::game::update_full_information_game_state(world, &player_move) {
+    match crate::game::update_full_information_game_state(world, player_move)? {
         true => {
             let player_values = placements_to_value(
-                world.player_finish_order,
+                &world.player_placements,
                 world.number_of_players,
                 search_context.config.greediness,
             );
-            return Some(player_values);
+            return Ok(Some(player_values));
         }
-        false => return None,
+        false => return Ok(None),
     }
 }
 
 fn placements_to_value(
-    placements: [usize; consts::MAX_PLAYERS],
+    placements: &game::PlayerPlacements,
     num_players: usize,
     greediness: f32,
 ) -> PlayerValues {
-    let mut values = [0.0; consts::MAX_PLAYERS];
-    for active_player in 0..num_players {
-        values[active_player] =
-            (1.0 - (placements[active_player] as f32 / (num_players - 1) as f32)).powf(greediness);
+    let mut values = PlayerValues::zeros();
+    for player_id in PlayerID::all_player_ids(num_players) {
+        values[player_id] =
+            (1.0 - (placements[player_id] as f32 / (num_players - 1) as f32)).powf(greediness);
     }
     return values;
 }
 
 pub fn value_to_probabilities(
-    action_value_matrix: ActionValueMatrix,
-    valid_action_mask: ActionMask,
-    player: game::PlayerNumber,
+    action_value_matrix: &ActionValueMatrix,
+    valid_action_mask: &ActionMask,
+    player: game::PlayerID,
     temperature: f32,
 ) -> ActionProbabilities {
     debug_assert!(temperature > 0.0);
 
     let mut max_value = f32::NEG_INFINITY;
 
-    for action_id in 0..NUM_ACTIONS {
+    for action_id in MoveID::all() {
         if valid_action_mask[action_id] {
             max_value = max_value.max(action_value_matrix[action_id][player]);
         }
@@ -331,10 +382,10 @@ pub fn value_to_probabilities(
         "Cannot create action probabilities with no valid actions"
     );
 
-    let mut probabilities = [0.0; NUM_ACTIONS];
+    let mut probabilities = ActionProbabilities::zeros();
     let mut total = 0.0;
 
-    for action_id in 0..NUM_ACTIONS {
+    for action_id in MoveID::all() {
         if !valid_action_mask[action_id] {
             continue;
         }
@@ -348,7 +399,7 @@ pub fn value_to_probabilities(
 
     debug_assert!(total > 0.0 && total.is_finite());
 
-    for action_id in 0..NUM_ACTIONS {
+    for action_id in MoveID::all() {
         probabilities[action_id] /= total;
     }
 
