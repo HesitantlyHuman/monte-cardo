@@ -100,6 +100,14 @@ fn select_puct_action(
     player_id: game::PlayerID,
     exploration_factor: f32,
 ) -> MoveID {
+    debug_assert!(node.action_mask.num_valid() > 0);
+    debug_assert!(
+        MoveID::all().any(|action_id| node.action_mask[action_id]),
+        "PUCTNode action_mask has num_valid = {}, but no valid action appears in MoveID::all(): {:?}",
+        node.action_mask.num_valid(),
+        node.action_mask,
+    );
+
     let mut best_action = None;
     let mut best_score = f32::NEG_INFINITY;
 
@@ -109,6 +117,27 @@ fn select_puct_action(
         }
 
         let score = puct_score(node, action_id, player_id, exploration_factor);
+
+        debug_assert!(
+            score.is_finite(),
+            "Non-finite PUCT score.\n\
+             action_id: {:?}\n\
+             score: {}\n\
+             prior: {}\n\
+             visit_count: {}\n\
+             accumulated_value_for_player: {}\n\
+             exploration_factor: {}\n\
+             total_visits: {}\n\
+             action_priors_sum: {}",
+            action_id,
+            score,
+            node.action_priors[action_id],
+            node.visit_counts[action_id.get()],
+            node.accumulated_values[action_id][player_id],
+            exploration_factor,
+            node.visit_counts.iter().sum::<u32>(),
+            node.action_priors.sum(),
+        );
 
         if score > best_score {
             best_action = Some(action_id);
@@ -127,8 +156,14 @@ fn update_puct_node(
     player_at_time: game::PlayerID,
     state_at_time: &NormalizedIncompleteInformation,
 ) {
-    // First, rotate our values to be in the normalized orientation (player at that time is player 0)
+    debug_assert!(
+        player_values.get().iter().all(|value| value.is_finite()),
+        "Non-finite PlayerValues before rotation: {:?}",
+        player_values.get(),
+    );
+
     let mut rotated_player_values = [0.0; consts::MAX_PLAYERS];
+
     left_rotate_array(
         player_values.get(),
         &mut rotated_player_values,
@@ -136,11 +171,48 @@ fn update_puct_node(
         player_at_time.get(),
     );
 
-    // Then update the accumulated values of the relevant node
+    debug_assert!(
+        rotated_player_values
+            .iter()
+            .take(state_at_time.number_of_players)
+            .all(|value| value.is_finite()),
+        "Non-finite rotated PlayerValues.\n\
+         player_values: {:?}\n\
+         rotated_player_values: {:?}\n\
+         player_at_time: {:?}\n\
+         state_at_time: {:?}",
+        player_values.get(),
+        rotated_player_values,
+        player_at_time,
+        state_at_time,
+    );
+
     for player_id in game::PlayerID::all_player_ids(state_at_time.number_of_players) {
-        node.accumulated_values[selected_action][player_id] +=
-            rotated_player_values[player_id.get()]
+        let value = rotated_player_values[player_id.get()];
+
+        debug_assert!(
+            value.is_finite(),
+            "Trying to back up non-finite value.\n\
+             selected_action: {:?}\n\
+             player_id: {:?}\n\
+             value: {}\n\
+             rotated_player_values: {:?}\n\
+             player_values: {:?}",
+            selected_action,
+            player_id,
+            value,
+            rotated_player_values,
+            player_values.get(),
+        );
+
+        node.accumulated_values[selected_action][player_id] += value;
+
+        debug_assert!(
+            node.accumulated_values[selected_action][player_id].is_finite(),
+            "Accumulated value became non-finite after backup."
+        );
     }
+
     node.visit_counts[selected_action.get()] += 1;
 }
 
@@ -154,6 +226,14 @@ fn create_search_node<H: ActionPriorHeuristic>(
         &incomplete_information.player_hand,
         &incomplete_information.trick.top_set,
     );
+
+    if valid_action_mask.num_valid() == 0 {
+        println!(
+            "{:?}\n{:?}",
+            &incomplete_information.player_hand, &incomplete_information.trick.top_set
+        );
+        panic!();
+    }
 
     let mut normalized_action_priors = ActionProbabilities::zeros();
     let mut unmasked_sum = 0.0;
@@ -210,22 +290,24 @@ pub fn puct_rollout<H: ActionPriorHeuristic>(
             game::create_incomplete_information_game_state(&world, world.current_player_number);
         let normalized_player_information =
             normalize_incomplete_information_state(&current_player_information);
-        let search_node = search_context
-            .nodes
-            .entry(normalized_player_information.clone())
-            .or_insert_with(|| {
-                create_search_node(
-                    &current_player_information,
-                    &normalized_player_information,
-                    search_context.heuristic,
-                )
-            });
 
-        let selected_action = select_puct_action(
-            search_node,
-            game::PlayerID::new(0),
-            search_context.config.exploration_factor,
-        );
+        let selected_action = {
+            let exploration_factor = search_context.config.exploration_factor;
+            let heuristic = &mut *search_context.heuristic;
+            let nodes = &mut search_context.nodes;
+
+            let search_node = nodes
+                .get_or_insert_with(&normalized_player_information, || {
+                    Ok::<PUCTNode, EvaluationError>(create_search_node(
+                        &current_player_information,
+                        &normalized_player_information,
+                        heuristic,
+                    ))
+                })?
+                .expect("PUCT node was not admitted into cache");
+
+            select_puct_action(search_node, game::PlayerID::new(0), exploration_factor)
+        };
         nodes_to_update_on_return.push((
             selected_action,
             world.current_player_number,
@@ -240,9 +322,9 @@ pub fn puct_rollout<H: ActionPriorHeuristic>(
             Some(player_values) => {
                 // First update the stats for all the nodes we visited
                 for (selected_action, player_at_time, key) in nodes_to_update_on_return {
-                    if let Some(search_node) = search_context.nodes.get_mut(&key) {
+                    if let Some(mut search_node) = search_context.nodes.get_mut(&key) {
                         update_puct_node(
-                            search_node,
+                            &mut *search_node,
                             &player_values,
                             selected_action,
                             player_at_time,

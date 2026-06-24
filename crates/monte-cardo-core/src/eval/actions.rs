@@ -3,7 +3,7 @@ use std::ops::Index;
 use thiserror::Error;
 
 use crate::consts;
-use crate::game::{self, CardCount, IncompleteInformationGameState, PlayerHand, TopSet};
+use crate::game::{self, CardCount, PlayerHand, TopSet};
 
 // The assumption is that we only consider playing the minimum number of wilds. Using all the wilds and all of the cards the max you could play in one go is consts::MAX_CARD_NUMBER * 2
 pub const NUM_ACTIONS: usize = 1 + consts::MAX_CARD_ORDINALITY * game::MAX_TOTAL_PLAY;

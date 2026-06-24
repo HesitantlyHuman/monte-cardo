@@ -374,11 +374,44 @@ fn placements_to_value(
     num_players: usize,
     greediness: f32,
 ) -> PlayerValues {
+    debug_assert!(num_players > 0);
+    debug_assert!(num_players <= consts::MAX_PLAYERS);
+    debug_assert!(greediness > 0.0 && greediness.is_finite());
+
     let mut values = PlayerValues::zeros();
-    for player_id in PlayerID::all_player_ids(num_players) {
-        values[player_id] =
-            (1.0 - (placements[player_id] as f32 / (num_players - 1) as f32)).powf(greediness);
+
+    if num_players == 1 {
+        values[PlayerID::new(0)] = 1.0;
+        return values;
     }
+
+    for player_id in PlayerID::all_player_ids(num_players) {
+        let placement = placements[player_id];
+
+        // placement == 0 means this player never went out.
+        // At terminal time, that should mean they are the last remaining player.
+        let final_place = if placement == 0 {
+            num_players
+        } else {
+            placement
+        };
+
+        debug_assert!(final_place >= 1);
+        debug_assert!(final_place <= num_players);
+
+        // Convert:
+        // place 1          -> 1.0
+        // place num_players -> 0.0
+        let linear_value = 1.0 - ((final_place - 1) as f32 / (num_players - 1) as f32);
+
+        debug_assert!(linear_value >= 0.0);
+        debug_assert!(linear_value <= 1.0);
+
+        values[player_id] = linear_value.powf(greediness);
+
+        debug_assert!(values[player_id].is_finite());
+    }
+
     return values;
 }
 
