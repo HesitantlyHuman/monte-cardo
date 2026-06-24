@@ -313,7 +313,7 @@ pub fn update_incomplete_information_game_state(
     return Ok(());
 }
 
-pub fn get_available_moves(hand: &PlayerHand, top_set: Option<TopSet>) -> Vec<Move> {
+pub fn get_available_moves(hand: &PlayerHand, top_set: &Option<TopSet>) -> Vec<Move> {
     match top_set {
         Some(top_set) => {
             // We must play something from our hand with the same card number
@@ -1111,7 +1111,7 @@ mod tests {
     fn get_available_moves_on_empty_trick_returns_no_moves_for_empty_hand() {
         assert_enough_ranks(3);
 
-        let moves = get_available_moves(&PlayerHand::empty(), None);
+        let moves = get_available_moves(&PlayerHand::empty(), &None);
 
         assert!(moves.is_empty());
     }
@@ -1122,7 +1122,7 @@ mod tests {
 
         let hand = hand_from_pairs(&[(1, 1)]);
 
-        let moves = get_available_moves(&hand, None);
+        let moves = get_available_moves(&hand, &None);
 
         assert!(!moves.contains(&Move::Pass));
     }
@@ -1133,7 +1133,7 @@ mod tests {
 
         let hand = hand_from_pairs(&[(1, 2)]);
 
-        let moves = get_available_moves(&hand, None);
+        let moves = get_available_moves(&hand, &None);
 
         assert_has_move(&moves, play(1, 1, 0));
         assert_has_move(&moves, play(1, 2, 0));
@@ -1146,7 +1146,7 @@ mod tests {
 
         let hand = hand_from_pairs(&[(0, 2), (1, 1)]);
 
-        let moves = get_available_moves(&hand, None);
+        let moves = get_available_moves(&hand, &None);
 
         assert_has_move(&moves, play(1, 1, 1));
         assert_has_move(&moves, play(1, 1, 2));
@@ -1162,7 +1162,7 @@ mod tests {
 
         let hand = hand_from_pairs(&[(0, 1), (1, 1)]);
 
-        let moves = get_available_moves(&hand, None);
+        let moves = get_available_moves(&hand, &None);
 
         for game_move in moves {
             match game_move {
@@ -1185,7 +1185,7 @@ mod tests {
 
         let hand = hand_from_pairs(&[(0, 1), (1, 2)]);
 
-        let moves = get_available_moves(&hand, None);
+        let moves = get_available_moves(&hand, &None);
 
         // For rank 1: non_wild choices 0..=2, wild choices 0..=1, minus 0/0 => 5.
         // For every other non-wild rank: non_wild choices only 0, wild choices 0..=1,
@@ -1201,7 +1201,7 @@ mod tests {
 
         let hand = PlayerHand::empty();
 
-        let moves = get_available_moves(&hand, Some(top_set(0, 3, 1)));
+        let moves = get_available_moves(&hand, &Some(top_set(0, 3, 1)));
 
         assert_eq!(moves, vec![Move::Pass]);
     }
@@ -1212,7 +1212,7 @@ mod tests {
 
         let hand = hand_from_pairs(&[(1, 2), (2, 2), (3, 2), (4, 2)]);
 
-        let moves = get_available_moves(&hand, Some(top_set(0, 3, 1)));
+        let moves = get_available_moves(&hand, &Some(top_set(0, 3, 1)));
 
         assert_has_move(&moves, play(1, 1, 0));
         assert_has_move(&moves, play(2, 1, 0));
@@ -1227,7 +1227,7 @@ mod tests {
 
         let hand = hand_from_pairs(&[(1, 3)]);
 
-        let moves = get_available_moves(&hand, Some(top_set(0, 3, 2)));
+        let moves = get_available_moves(&hand, &Some(top_set(0, 3, 2)));
 
         assert_has_move(&moves, play(1, 2, 0));
         assert_does_not_have_move(&moves, play(1, 1, 0));
@@ -1240,7 +1240,7 @@ mod tests {
 
         let hand = hand_from_pairs(&[(0, 2), (1, 1)]);
 
-        let moves = get_available_moves(&hand, Some(top_set(0, 3, 2)));
+        let moves = get_available_moves(&hand, &Some(top_set(0, 3, 2)));
 
         assert_has_move(&moves, play(1, 1, 1));
         assert_has_move(&moves, play(1, 0, 2));
@@ -1253,7 +1253,7 @@ mod tests {
 
         let hand = hand_from_pairs(&[(0, 2), (1, 2)]);
 
-        let moves = get_available_moves(&hand, Some(top_set(0, 3, 2)));
+        let moves = get_available_moves(&hand, &Some(top_set(0, 3, 2)));
 
         assert_eq!(moves[0], play(1, 2, 0));
         assert_eq!(moves[1], play(1, 1, 1));
@@ -1266,7 +1266,7 @@ mod tests {
 
         let hand = hand_from_pairs(&[(0, 1), (1, 1)]);
 
-        let moves = get_available_moves(&hand, Some(top_set(0, 3, 3)));
+        let moves = get_available_moves(&hand, &Some(top_set(0, 3, 3)));
 
         assert_eq!(moves, vec![Move::Pass]);
     }
@@ -1277,7 +1277,7 @@ mod tests {
 
         let hand = hand_from_pairs(&[(0, 5), (1, 5)]);
 
-        let moves = get_available_moves(&hand, Some(top_set(0, 1, 1)));
+        let moves = get_available_moves(&hand, &Some(top_set(0, 1, 1)));
 
         assert_eq!(moves, vec![Move::Pass]);
     }

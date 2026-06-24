@@ -1,4 +1,3 @@
-use core::num;
 use std::ops::{Index, IndexMut};
 
 use crate::consts;

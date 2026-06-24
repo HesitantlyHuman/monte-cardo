@@ -1,10 +1,9 @@
 use ratatui::{
     buffer::Buffer,
-    layout::{Layout, Rect},
+    layout::Rect,
     style::{Color, Modifier, Style, Styled},
-    symbols,
-    text::{Line, Span},
-    widgets::{Block, BorderType, Borders, Clear, Paragraph, Widget},
+    text::Span,
+    widgets::{Clear, Paragraph, Widget},
 };
 
 pub struct CardPile {

@@ -1,11 +1,11 @@
 use crate::cards::{Hand, Move};
 use ratatui::{
     buffer::Buffer,
-    layout::{Alignment, Layout, Rect},
-    style::{Color, Modifier, Style, Styled},
+    layout::{Alignment, Rect},
+    style::Color,
     symbols,
     text::{Line, Span},
-    widgets::{Block, BorderType, Borders, Clear, Paragraph, Widget},
+    widgets::{Paragraph, Widget},
 };
 
 #[derive(Debug, Clone)]

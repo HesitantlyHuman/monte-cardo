@@ -15,8 +15,28 @@ use crate::game;
 pub struct ActionProbabilities([f32; NUM_ACTIONS]);
 
 impl ActionProbabilities {
+    #[inline]
     pub fn zeros() -> Self {
         return Self([0.0; NUM_ACTIONS]);
+    }
+
+    #[inline]
+    pub fn ones() -> Self {
+        return Self([1.0; NUM_ACTIONS]);
+    }
+
+    #[inline]
+    pub fn sum(&self) -> f32 {
+        return self.0.iter().sum();
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &f32> {
+        return self.0.iter();
+    }
+
+    pub fn normalize(&mut self) {
+        let sum = self.sum();
+        self.0.iter_mut().for_each(|val| *val /= sum);
     }
 }
 
@@ -130,7 +150,11 @@ fn create_search_node<H: ActionPriorHeuristic>(
     heuristic: &mut H,
 ) -> PUCTNode {
     let action_priors = heuristic.action_priors(normalized_information_state);
-    let valid_action_mask = ActionMask::from_incomplete_information(incomplete_information);
+    let valid_action_mask = ActionMask::from_hand_and_top(
+        &incomplete_information.player_hand,
+        &incomplete_information.trick.top_set,
+    );
+
     let mut normalized_action_priors = ActionProbabilities::zeros();
     let mut unmasked_sum = 0.0;
     for move_id in MoveID::all() {

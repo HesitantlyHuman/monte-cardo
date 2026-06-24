@@ -505,6 +505,7 @@ dependencies = [
  "crossterm",
  "kdam",
  "monte-cardo-core",
+ "rand",
  "ratatui",
 ]
 

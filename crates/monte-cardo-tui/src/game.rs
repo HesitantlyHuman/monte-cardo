@@ -5,14 +5,10 @@ use crate::table::Table;
 
 use ratatui::{
     buffer::Buffer,
-    layout::{Layout, Rect},
-    style::Color,
-    symbols,
-    text::{Line, Span},
+    layout::Rect,
+    text::Span,
     widgets::{Block, BorderType, Borders, Paragraph, Widget},
 };
-
-use super::hand;
 
 #[derive(Debug, Clone)]
 pub struct GameState {

@@ -31,6 +31,8 @@ pub struct CardRank(usize);
 
 impl CardRank {
     pub const WILD: CardRank = CardRank(0);
+    pub const LOWEST: CardRank = CardRank(consts::MAX_CARD_ORDINALITY);
+    pub const HIGHEST: CardRank = CardRank(1);
 
     #[inline]
     pub fn new(rank: usize) -> Self {

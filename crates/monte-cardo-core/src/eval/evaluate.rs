@@ -89,19 +89,17 @@ pub enum EvaluationError {
     RolloutError,
 }
 
-fn choose_best_action<H: ActionPriorHeuristic>(
-    incomplete_information_state: game::IncompleteInformationGameState,
-    heuristic: &mut H,
+pub fn choose_best_action<H: ActionPriorHeuristic>(
+    incomplete_information_state: &game::IncompleteInformationGameState,
+    search_context: &mut SearchContext<H>,
 ) -> Result<game::Move, EvaluationError> {
     debug_assert!(
         incomplete_information_state.current_player_number
             == incomplete_information_state.perspective_player_number
     );
 
-    let search_config = SearchConfig::inference();
-    let mut search_context = SearchContext::new(heuristic, search_config);
     let (action_values, action_mask) =
-        full_tree_evaluation(&incomplete_information_state, &mut search_context, 0)?;
+        full_tree_evaluation(incomplete_information_state, search_context, 0)?;
 
     return Ok(best_action_from_values(
         action_values,
@@ -152,8 +150,10 @@ pub fn full_tree_evaluation<H: ActionPriorHeuristic>(
     );
 
     let mut action_value_matrix = ActionValueMatrix::zeros();
-    let valid_action_matrix =
-        ActionMask::from_incomplete_information(&incomplete_information_state);
+    let valid_action_matrix = ActionMask::from_hand_and_top(
+        &incomplete_information_state.player_hand,
+        &incomplete_information_state.trick.top_set,
+    );
 
     for (world, world_probability) in possible_worlds_and_probs {
         for action_id in 0..NUM_ACTIONS {
@@ -270,7 +270,10 @@ fn puct_evaluation<H: ActionPriorHeuristic>(
 
     return Ok((
         action_value_matrix,
-        ActionMask::from_incomplete_information(&incomplete_information_state),
+        ActionMask::from_hand_and_top(
+            &incomplete_information_state.player_hand,
+            &incomplete_information_state.trick.top_set,
+        ),
     ));
 }
 
@@ -421,5 +424,5 @@ pub fn value_to_probabilities(
         probabilities[action_id] /= total;
     }
 
-    probabilities
+    return probabilities;
 }

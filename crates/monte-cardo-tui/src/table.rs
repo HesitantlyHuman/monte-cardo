@@ -2,11 +2,10 @@ use crate::cards::Move;
 
 use ratatui::{
     buffer::Buffer,
-    layout::{Alignment, Layout, Rect},
-    style::{Color, Modifier, Style, Styled},
-    symbols,
+    layout::{Alignment, Rect},
+    style::Color,
     text::{Line, Span},
-    widgets::{Block, BorderType, Borders, Clear, Paragraph, Widget, Wrap},
+    widgets::{Block, Borders, Paragraph, Widget, Wrap},
 };
 
 use super::cards::TrickHistory;
