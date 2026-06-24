@@ -101,7 +101,7 @@ fn choose_best_action<H: ActionPriorHeuristic>(
     let search_config = SearchConfig::inference();
     let mut search_context = SearchContext::new(heuristic, search_config);
     let (action_values, action_mask) =
-        full_tree_evaluation(incomplete_information_state.clone(), &mut search_context, 0)?;
+        full_tree_evaluation(&incomplete_information_state, &mut search_context, 0)?;
 
     return Ok(best_action_from_values(
         action_values,
@@ -141,7 +141,7 @@ fn best_action_from_values(
 ///
 /// Returns a full action value matrix, along with the valid action mask for the current player from the given state.
 pub fn full_tree_evaluation<H: ActionPriorHeuristic>(
-    incomplete_information_state: game::IncompleteInformationGameState,
+    incomplete_information_state: &game::IncompleteInformationGameState,
     search_context: &mut SearchContext<H>,
     current_depth: usize,
 ) -> Result<(ActionValueMatrix, ActionMask), EvaluationError> {
@@ -192,7 +192,7 @@ pub fn full_tree_evaluation<H: ActionPriorHeuristic>(
                             puct_evaluation(current_player_information, search_context)?
                         } else {
                             full_tree_evaluation(
-                                current_player_information,
+                                &current_player_information,
                                 search_context,
                                 current_depth + 1,
                             )?

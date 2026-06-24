@@ -6,7 +6,7 @@ use crate::game;
 
 use crate::eval::actions::{ActionMask, MoveID, MoveIDError, NUM_ACTIONS};
 use crate::eval::config::{ActionPriorHeuristic, SearchConfig, SearchContext};
-use crate::eval::evaluate::{full_tree_evaluation, value_to_probabilities};
+use crate::eval::evaluate::{full_tree_evaluation, value_to_probabilities, EvaluationError};
 use crate::eval::normalize::{
     normalize_incomplete_information_state, NormalizedIncompleteInformation,
 };
@@ -23,11 +23,11 @@ fn generate_training_example<H: ActionPriorHeuristic>(
     incomplete_information_state: game::IncompleteInformationGameState,
     heuristic: &mut H,
     temperature_schedule: f32,
-) -> (game::Move, TrainingExample) {
+) -> Result<(game::Move, TrainingExample), EvaluationError> {
     let search_config = SearchConfig::training(temperature_schedule);
     let mut search_context = SearchContext::new(heuristic, search_config);
     let (action_values, action_mask) =
-        full_tree_evaluation(incomplete_information_state, &mut search_context, 0)?;
+        full_tree_evaluation(&incomplete_information_state, &mut search_context, 0)?;
 
     let action_probabilities = value_to_probabilities(
         &action_values,
@@ -42,14 +42,14 @@ fn generate_training_example<H: ActionPriorHeuristic>(
         &mut search_context.rng,
     )?;
 
-    return (
+    return Ok((
         selected_move,
         TrainingExample {
             state: normalize_incomplete_information_state(&incomplete_information_state),
             action_probabilities: action_probabilities,
             action_mask: action_mask,
         },
-    );
+    ));
 }
 
 fn choose_best_action_from_probabilities(
