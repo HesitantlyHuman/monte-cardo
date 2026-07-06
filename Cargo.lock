@@ -519,6 +519,7 @@ dependencies = [
  "quick_cache",
  "rand",
  "rand_distr",
+ "smallvec",
  "thiserror",
 ]
 

@@ -1,3 +1,4 @@
+use crate::eval;
 use crate::game::collections::PlayerIndexed;
 use crate::game::primitives::{CardCount, CardRank, PlayerID, MAX_TOTAL_PLAY};
 
@@ -67,6 +68,56 @@ impl Trick {
             top_set: None,
             has_passed: PlayerIndexed::filled(false),
         };
+    }
+}
+
+impl eval::RankCompressible for Trick {
+    fn rank_compress(
+        &self,
+        rank_compression_map: &eval::RankCompressionMap,
+    ) -> Result<eval::RankCompressed<Self>, eval::NormalizationError> {
+        let mut rank_compressed_trick = self.clone();
+        match rank_compressed_trick.top_set {
+            Some(set) => {
+                let compressed_set_rank = match set.rank.rank_compress(rank_compression_map) {
+                    Ok(compressed_rank) => compressed_rank,
+                    Err(err) => {
+                        return Err(eval::NormalizationError::RankCompressionError(format!(
+                            "Encountered error while rank compressing Trick: {}",
+                            err
+                        )))
+                    }
+                };
+                rank_compressed_trick.top_set = Some(TopSet::new(
+                    set.player,
+                    *compressed_set_rank.inner(),
+                    set.number,
+                ));
+            }
+            None => {}
+        }
+
+        return Ok(eval::RankCompressed::new_unchecked(rank_compressed_trick));
+    }
+
+    fn rank_decompress(
+        compressed: &eval::RankCompressed<Self>,
+        rank_compression_map: &eval::RankCompressionMap,
+    ) -> Result<Self, eval::NormalizationError> {
+        let mut rank_decompressed_trick = compressed.inner().clone();
+        match rank_decompressed_trick.top_set {
+            Some(set) => {
+                let decompressed_set_rank = CardRank::rank_decompress(
+                    &set.rank.rank_compress(rank_compression_map)?,
+                    rank_compression_map,
+                )?;
+                rank_decompressed_trick.top_set =
+                    Some(TopSet::new(set.player, decompressed_set_rank, set.number));
+            }
+            None => {}
+        }
+
+        return Ok(rank_decompressed_trick);
     }
 }
 

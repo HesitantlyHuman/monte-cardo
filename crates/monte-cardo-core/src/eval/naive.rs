@@ -1,12 +1,9 @@
 use crate::consts;
 use crate::eval::actions::{ActionMask, MoveID};
 use crate::eval::config::ActionPriorHeuristic;
-use crate::eval::normalize::NormalizedIncompleteInformation;
+use crate::eval::normalize::{NormalizedIncompleteInformation, RankCompressed};
 use crate::eval::puct::ActionProbabilities;
-use crate::game::{
-    CardRank, IncompleteInformationGameState, Move, PlayerHand, PlayerID, PlayerPlacements,
-    MAX_TOTAL_PLAY,
-};
+use crate::game::{CardRank, Move, PlayerHand, MAX_TOTAL_PLAY};
 
 pub struct NaiveHeuristic {}
 
@@ -17,8 +14,11 @@ impl NaiveHeuristic {
 }
 
 impl ActionPriorHeuristic for NaiveHeuristic {
-    fn action_priors(&mut self, _: &NormalizedIncompleteInformation) -> ActionProbabilities {
-        return ActionProbabilities::ones();
+    fn action_priors(
+        &mut self,
+        _: &NormalizedIncompleteInformation,
+    ) -> RankCompressed<ActionProbabilities> {
+        return RankCompressed::new_unchecked(ActionProbabilities::ones());
     }
 }
 
@@ -50,25 +50,32 @@ impl SimpleHeuristic {
     }
 
     pub fn default() -> Self {
-        return Self::new(5.0, 2.0, 0.0, 0.9);
+        return Self::new(50.0, 3.0, 0.0, 0.6);
     }
 }
 
 impl ActionPriorHeuristic for SimpleHeuristic {
-    fn action_priors(&mut self, state: &NormalizedIncompleteInformation) -> ActionProbabilities {
-        let can_beat = player_can_beat_array(&state.player_hand, &state.opponent_cards);
+    fn action_priors(
+        &mut self,
+        state: &NormalizedIncompleteInformation,
+    ) -> RankCompressed<ActionProbabilities> {
+        // This just treats the normalized hands as if they are normal hands, since denormalization of the action space will happen later.
+
+        let can_beat =
+            player_can_beat_array(state.player_hand.inner(), state.opponent_cards.inner());
 
         let card_values = linear_card_values(self.contains_high_value, self.contains_low_value);
 
         let mut probs = ActionProbabilities::zeros();
-        let valid_actions = ActionMask::from_hand_and_top(&state.player_hand, &state.trick.top_set);
+        let valid_actions =
+            ActionMask::from_hand_and_top(state.player_hand.inner(), &state.trick.inner().top_set);
         for move_id in MoveID::all() {
             if !valid_actions[move_id] {
                 continue;
             }
 
             let candidate_move = move_id
-                .to_move(&state.player_hand)
+                .to_move(state.player_hand.inner())
                 .expect("ActionMask gave an invalid MoveID");
 
             let play = match candidate_move {
@@ -101,7 +108,7 @@ impl ActionPriorHeuristic for SimpleHeuristic {
             probs[move_id] /= total;
         }
 
-        return probs;
+        return RankCompressed::new_unchecked(probs);
     }
 }
 

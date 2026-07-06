@@ -41,7 +41,7 @@ impl IncompleteInformationGameState {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FullInformationGameState {
     pub current_player_number: PlayerID,
     pub number_of_players: usize,
@@ -68,6 +68,7 @@ impl FullInformationGameState {
     }
 }
 
+#[inline(never)] // TODO: Remove
 pub fn create_incomplete_information_game_state(
     full_information_game_state: &FullInformationGameState,
     perspective_player_number: PlayerID,

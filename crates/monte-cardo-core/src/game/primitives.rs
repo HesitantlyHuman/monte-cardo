@@ -1,6 +1,6 @@
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
-use crate::consts;
+use crate::{consts, eval};
 
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -55,6 +55,22 @@ impl CardRank {
 
     pub fn non_wilds_below(rank: Self) -> impl Iterator<Item = CardRank> {
         return (1..rank.0).map(Self::new);
+    }
+}
+
+impl eval::RankCompressible for CardRank {
+    fn rank_compress(
+        &self,
+        rank_compression_map: &eval::RankCompressionMap,
+    ) -> Result<eval::RankCompressed<Self>, eval::NormalizationError> {
+        return rank_compression_map.compress_rank(*self);
+    }
+
+    fn rank_decompress(
+        compressed: &eval::RankCompressed<Self>,
+        rank_compression_map: &eval::RankCompressionMap,
+    ) -> Result<Self, eval::NormalizationError> {
+        return rank_compression_map.decompress_rank(&compressed);
     }
 }
 

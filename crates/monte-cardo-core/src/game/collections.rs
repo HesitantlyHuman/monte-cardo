@@ -1,6 +1,7 @@
 use std::ops::{Index, IndexMut};
 
 use crate::consts;
+use crate::eval;
 use crate::game::primitives::{CardCount, CardRank, PlayerID};
 
 #[repr(transparent)]
@@ -49,6 +50,49 @@ impl IndexMut<CardRank> for PlayerHand {
     #[inline]
     fn index_mut(&mut self, rank: CardRank) -> &mut Self::Output {
         return &mut self.0[rank.get()];
+    }
+}
+
+impl eval::RankCompressible for PlayerHand {
+    fn rank_compress(
+        &self,
+        rank_compression_map: &eval::RankCompressionMap,
+    ) -> Result<eval::RankCompressed<Self>, eval::NormalizationError> {
+        let mut compressed_hand = PlayerHand::empty();
+        for card_rank in CardRank::all() {
+            let card_count = self[card_rank];
+
+            if card_count > CardCount::new(0) {
+                let compressed_card_rank = match card_rank.rank_compress(&rank_compression_map) {
+                    Ok(compressed_card_rank) => compressed_card_rank,
+                    Err(_) => return Err(eval::NormalizationError::RankCompressionError(
+                        format!("While compressing player hand: {:?}, encountered error compressing card rank: {:?}", self, card_rank)
+                    ))
+                };
+                compressed_hand[*compressed_card_rank.inner()] = card_count;
+            }
+        }
+        return Ok(eval::RankCompressed::new_unchecked(compressed_hand));
+    }
+
+    fn rank_decompress(
+        compressed: &eval::RankCompressed<Self>,
+        rank_compression_map: &eval::RankCompressionMap,
+    ) -> Result<Self, eval::NormalizationError> {
+        let mut uncompressed_hand = PlayerHand::empty();
+
+        for card_rank in CardRank::all() {
+            let card_count = compressed.inner()[card_rank];
+
+            if card_count > CardCount::new(0) {
+                let uncompressed_card_rank = CardRank::rank_decompress(
+                    &eval::RankCompressed::new_unchecked(card_rank),
+                    &rank_compression_map,
+                )?;
+                uncompressed_hand[uncompressed_card_rank] = card_count;
+            }
+        }
+        return Ok(uncompressed_hand);
     }
 }
 

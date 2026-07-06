@@ -6,10 +6,11 @@ use rand_distr::Distribution;
 use thiserror::Error;
 
 use crate::consts;
+use crate::eval::normalize::NormalizationError;
 use crate::game;
 
 use crate::eval::actions::{ActionMask, MoveID, MoveIDError, NUM_ACTIONS};
-use crate::eval::config::{ActionPriorHeuristic, SearchConfig, SearchContext};
+use crate::eval::config::{ActionPriorHeuristic, SearchContext};
 use crate::eval::puct::{puct_rollout, ActionProbabilities};
 use crate::game::{CardCount, CardRank, GameLogicError, PlayerHand, PlayerID, PlayerIndexed};
 
@@ -87,6 +88,8 @@ pub enum EvaluationError {
     GameLogicError(#[from] GameLogicError),
     #[error("PUCT rollout failed to finish")]
     RolloutError,
+    #[error("Normalization failed: {0}")]
+    NormalizationError(#[from] NormalizationError),
 }
 
 pub fn choose_best_action<H: ActionPriorHeuristic>(
@@ -155,10 +158,13 @@ pub fn full_tree_evaluation<H: ActionPriorHeuristic>(
         &incomplete_information_state.trick.top_set,
     );
 
-    for (world, world_probability) in possible_worlds_and_probs {
-        for action_id in 0..NUM_ACTIONS {
-            let action_id = MoveID::new(action_id);
+    // Update search statistics
+    search_context.stats.full_tree_nodes_visited += 1;
+    search_context.stats.total_sampled_worlds += possible_worlds_and_probs.len();
+    search_context.stats.full_tree_edges_evaluated += NUM_ACTIONS * possible_worlds_and_probs.len();
 
+    for (world, world_probability) in possible_worlds_and_probs {
+        for action_id in MoveID::all() {
             // Ignore actions that the current player cannot take.
             if !valid_action_matrix[action_id] {
                 continue;
@@ -189,6 +195,7 @@ pub fn full_tree_evaluation<H: ActionPriorHeuristic>(
                     // Select our evaluation method depending on depth
                     let (next_value_matrix, valid_next_actions) =
                         if current_depth + 1 >= search_context.config.full_tree_depth {
+                            search_context.stats.full_tree_puct_calls += 1;
                             puct_evaluation(current_player_information, search_context)?
                         } else {
                             full_tree_evaluation(
@@ -244,6 +251,9 @@ fn puct_evaluation<H: ActionPriorHeuristic>(
 
     let mut action_value_matrix = ActionValueMatrix::zeros();
     let mut action_visits = [0; NUM_ACTIONS];
+
+    // Update search stats
+    search_context.stats.total_sampled_worlds += possible_worlds.len();
 
     // TODO: Make this an EvaluationError
     let dist =

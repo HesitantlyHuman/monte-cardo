@@ -176,11 +176,11 @@ pub fn prepare_network_inputs_from_normalized_incomplete_information(
     let mut cursor = 0;
 
     // 1. Card matrix of player hand.
-    let player_card_matrix = hand_to_card_matrix(&state.player_hand);
+    let player_card_matrix = hand_to_card_matrix(state.player_hand.inner());
     write_slice(&mut network_inputs, &mut cursor, &player_card_matrix);
 
     // 2. Card matrix of opponent cards.
-    let opponent_card_matrix = hand_to_card_matrix(&state.opponent_cards);
+    let opponent_card_matrix = hand_to_card_matrix(state.opponent_cards.inner());
     write_slice(&mut network_inputs, &mut cursor, &opponent_card_matrix);
 
     // 3. Player-count gates.
@@ -188,7 +188,7 @@ pub fn prepare_network_inputs_from_normalized_incomplete_information(
     write_slice(&mut network_inputs, &mut cursor, &player_count_gates);
 
     // 4–7. Top-set features.
-    match state.trick.top_set {
+    match state.trick.inner().top_set {
         Some(top_set) => {
             debug_assert!(top_set.rank.get() < consts::MAX_CARD_ORDINALITY);
             debug_assert!(top_set.number.get() > 0);
@@ -238,7 +238,7 @@ pub fn prepare_network_inputs_from_normalized_incomplete_information(
     let mut has_passed_features = vec![-1.0; consts::MAX_PLAYERS];
 
     for player in PlayerID::all_player_ids(state.number_of_players) {
-        has_passed_features[player.get()] = binary_feature(state.trick.has_passed[player]);
+        has_passed_features[player.get()] = binary_feature(state.trick.inner().has_passed[player]);
     }
 
     write_slice(&mut network_inputs, &mut cursor, &has_passed_features);

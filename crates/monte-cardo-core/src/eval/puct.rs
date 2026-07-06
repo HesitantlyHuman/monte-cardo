@@ -1,15 +1,22 @@
 use std::ops::Index;
 use std::ops::IndexMut;
 
+use smallvec::SmallVec;
+
 use crate::consts;
-use crate::eval::actions::{ActionMask, MoveID, NUM_ACTIONS};
+use crate::eval::actions::{MoveID, NUM_ACTIONS};
 use crate::eval::config::{ActionPriorHeuristic, SearchContext};
 use crate::eval::evaluate::EvaluationError;
-use crate::eval::evaluate::{update_world, ActionValueMatrix, PlayerValues};
+use crate::eval::evaluate::{update_world, PlayerValues};
 use crate::eval::normalize::{
-    left_rotate_array, normalize_incomplete_information_state, NormalizedIncompleteInformation,
+    normalize_incomplete_information_state, NormalizedIncompleteInformation, RankCompressible,
+    RankCompressionMap,
 };
+use crate::eval::zobrist::ZobristHash;
+use crate::eval::NormalizationError;
+use crate::eval::RankCompressed;
 use crate::game;
+use crate::game::PlayerID;
 
 #[derive(Debug, Clone)]
 pub struct ActionProbabilities([f32; NUM_ACTIONS]);
@@ -54,218 +61,211 @@ impl IndexMut<MoveID> for ActionProbabilities {
     }
 }
 
+impl RankCompressible for ActionProbabilities {
+    fn rank_compress(
+        &self,
+        rank_compression_map: &RankCompressionMap,
+    ) -> Result<RankCompressed<Self>, super::NormalizationError> {
+        let mut compressed_action_probabilities = ActionProbabilities::zeros();
+
+        for uncompressed_move_id in MoveID::all() {
+            match uncompressed_move_id.rank_compress(rank_compression_map) {
+                Ok(compressed_id) => {
+                    compressed_action_probabilities[*compressed_id.inner()] =
+                        self[uncompressed_move_id]
+                }
+                Err(_) => {}
+            }
+        }
+
+        return Ok(RankCompressed::new_unchecked(
+            compressed_action_probabilities,
+        ));
+    }
+
+    fn rank_decompress(
+        compressed: &RankCompressed<Self>,
+        rank_compression_map: &RankCompressionMap,
+    ) -> Result<Self, super::NormalizationError> {
+        let mut decompressed_action_probabilities = ActionProbabilities::zeros();
+
+        for compressed_move_id in MoveID::all() {
+            let compressed_move_id = RankCompressed::new_unchecked(compressed_move_id);
+            match MoveID::rank_decompress(&compressed_move_id, rank_compression_map) {
+                Ok(decompressed_id) => {
+                    decompressed_action_probabilities[decompressed_id] =
+                        compressed.inner()[*compressed_move_id.inner()];
+                }
+                Err(_) => {}
+            }
+        }
+
+        return Ok(decompressed_action_probabilities);
+    }
+}
+
+pub struct PUCTAction {
+    action: RankCompressed<MoveID>,
+    prior: f32,
+    visit_count: usize,
+    accumulated_value: f32,
+}
+
+const PUCT_STACK_SIZE: usize = 4;
+
 pub struct PUCTNode {
-    action_mask: ActionMask,
-    action_priors: ActionProbabilities,
-    visit_counts: [u32; NUM_ACTIONS],
-    accumulated_values: ActionValueMatrix,
+    actions: SmallVec<[PUCTAction; PUCT_STACK_SIZE]>,
+    times_at_node: usize,
 }
 
 impl PUCTNode {
-    fn new(action_mask: ActionMask, action_priors: ActionProbabilities) -> Self {
+    fn new(actions: SmallVec<[PUCTAction; PUCT_STACK_SIZE]>) -> Self {
         PUCTNode {
-            action_mask: action_mask,
-            action_priors: action_priors,
-            visit_counts: [0; NUM_ACTIONS],
-            accumulated_values: ActionValueMatrix::zeros(),
+            actions: actions,
+            times_at_node: 0,
         }
     }
 }
 
-fn puct_score(
-    node: &PUCTNode,
-    action_id: MoveID,
-    player_id: game::PlayerID,
-    exploration_factor: f32,
-) -> f32 {
-    let n_action_taken = node.visit_counts[action_id.get()];
-    let n_times_at_node: u32 = node.visit_counts.iter().sum::<u32>().max(1);
+impl Index<&RankCompressed<MoveID>> for RankCompressed<ActionProbabilities> {
+    type Output = f32;
 
-    let q_term = if n_action_taken == 0 {
+    fn index(&self, index: &RankCompressed<MoveID>) -> &Self::Output {
+        return &self.inner()[*index.inner()];
+    }
+}
+
+impl IndexMut<&RankCompressed<MoveID>> for RankCompressed<ActionProbabilities> {
+    fn index_mut(&mut self, index: &RankCompressed<MoveID>) -> &mut Self::Output {
+        return &mut self.inner_mut()[*index.inner()];
+    }
+}
+
+fn puct_score(puct_action: &PUCTAction, times_at_node: usize, exploration_factor: f32) -> f32 {
+    let q_term = if puct_action.visit_count == 0 {
         0.0
     } else {
-        node.accumulated_values[action_id][player_id] / n_action_taken as f32
+        puct_action.accumulated_value / puct_action.visit_count as f32
     };
 
-    let prior = node.action_priors[action_id];
     let exploration_term = exploration_factor
-        * prior
-        * ((n_times_at_node as f32).sqrt() / (1.0 + n_action_taken as f32));
+        * puct_action.prior
+        * ((times_at_node as f32).sqrt() / (1.0 + puct_action.visit_count as f32));
 
     return q_term + exploration_term;
 }
-
 fn select_puct_action(
     node: &PUCTNode,
-    player_id: game::PlayerID,
+    rank_compression_map: &RankCompressionMap,
     exploration_factor: f32,
-) -> MoveID {
-    debug_assert!(node.action_mask.num_valid() > 0);
-    debug_assert!(
-        MoveID::all().any(|action_id| node.action_mask[action_id]),
-        "PUCTNode action_mask has num_valid = {}, but no valid action appears in MoveID::all(): {:?}",
-        node.action_mask.num_valid(),
-        node.action_mask,
-    );
+) -> Result<(MoveID, usize), EvaluationError> {
+    debug_assert!(node.actions.len() > 0);
 
     let mut best_action = None;
     let mut best_score = f32::NEG_INFINITY;
 
-    for action_id in MoveID::all() {
-        if !node.action_mask[action_id] {
-            continue;
-        }
+    for (puct_action_index, puct_action) in node.actions.iter().enumerate() {
+        let score = puct_score(puct_action, node.times_at_node, exploration_factor);
 
-        let score = puct_score(node, action_id, player_id, exploration_factor);
-
-        debug_assert!(
-            score.is_finite(),
-            "Non-finite PUCT score.\n\
-             action_id: {:?}\n\
-             score: {}\n\
-             prior: {}\n\
-             visit_count: {}\n\
-             accumulated_value_for_player: {}\n\
-             exploration_factor: {}\n\
-             total_visits: {}\n\
-             action_priors_sum: {}",
-            action_id,
-            score,
-            node.action_priors[action_id],
-            node.visit_counts[action_id.get()],
-            node.accumulated_values[action_id][player_id],
-            exploration_factor,
-            node.visit_counts.iter().sum::<u32>(),
-            node.action_priors.sum(),
-        );
+        debug_assert!(score.is_finite());
 
         if score > best_score {
-            best_action = Some(action_id);
+            best_action = Some((puct_action.action.clone(), puct_action_index));
             best_score = score;
         }
     }
 
-    // TODO: Consider returning a result
-    best_action.expect("PUCTNode has no valid actions!")
+    let (compressed_action, action_index) = best_action.expect("PUCTNode has no valid actions!");
+
+    let concrete_action = MoveID::rank_decompress(&compressed_action, rank_compression_map)
+        .map_err(|err| {
+            EvaluationError::NormalizationError(NormalizationError::RankDecompressionError(
+                format!("PUCT selected an invalid compressed action: {}", err,),
+            ))
+        })?;
+
+    return Ok((concrete_action, action_index));
 }
 
 fn update_puct_node(
     node: &mut PUCTNode,
     player_values: &PlayerValues,
-    selected_action: MoveID,
+    action_index: usize,
     player_at_time: game::PlayerID,
-    state_at_time: &NormalizedIncompleteInformation,
-) {
+) -> Result<(), EvaluationError> {
     debug_assert!(
         player_values.get().iter().all(|value| value.is_finite()),
         "Non-finite PlayerValues before rotation: {:?}",
         player_values.get(),
     );
 
-    let mut rotated_player_values = [0.0; consts::MAX_PLAYERS];
+    node.actions[action_index].accumulated_value += player_values[player_at_time];
 
-    left_rotate_array(
-        player_values.get(),
-        &mut rotated_player_values,
-        state_at_time.number_of_players,
-        player_at_time.get(),
-    );
+    node.actions[action_index].visit_count += 1;
+    node.times_at_node += 1;
 
-    debug_assert!(
-        rotated_player_values
-            .iter()
-            .take(state_at_time.number_of_players)
-            .all(|value| value.is_finite()),
-        "Non-finite rotated PlayerValues.\n\
-         player_values: {:?}\n\
-         rotated_player_values: {:?}\n\
-         player_at_time: {:?}\n\
-         state_at_time: {:?}",
-        player_values.get(),
-        rotated_player_values,
-        player_at_time,
-        state_at_time,
-    );
-
-    for player_id in game::PlayerID::all_player_ids(state_at_time.number_of_players) {
-        let value = rotated_player_values[player_id.get()];
-
-        debug_assert!(
-            value.is_finite(),
-            "Trying to back up non-finite value.\n\
-             selected_action: {:?}\n\
-             player_id: {:?}\n\
-             value: {}\n\
-             rotated_player_values: {:?}\n\
-             player_values: {:?}",
-            selected_action,
-            player_id,
-            value,
-            rotated_player_values,
-            player_values.get(),
-        );
-
-        node.accumulated_values[selected_action][player_id] += value;
-
-        debug_assert!(
-            node.accumulated_values[selected_action][player_id].is_finite(),
-            "Accumulated value became non-finite after backup."
-        );
-    }
-
-    node.visit_counts[selected_action.get()] += 1;
+    return Ok(());
 }
 
 fn create_search_node<H: ActionPriorHeuristic>(
     incomplete_information: &game::IncompleteInformationGameState,
     normalized_information_state: &NormalizedIncompleteInformation,
+    rank_compression_map: &RankCompressionMap,
     heuristic: &mut H,
-) -> PUCTNode {
+) -> Result<PUCTNode, EvaluationError> {
     let action_priors = heuristic.action_priors(normalized_information_state);
-    let valid_action_mask = ActionMask::from_hand_and_top(
+
+    let mut valid_actions = Vec::new();
+    for available_move in game::get_available_moves(
         &incomplete_information.player_hand,
         &incomplete_information.trick.top_set,
-    );
-
-    if valid_action_mask.num_valid() == 0 {
-        println!(
-            "{:?}\n{:?}",
-            &incomplete_information.player_hand, &incomplete_information.trick.top_set
-        );
-        panic!();
+    ) {
+        let move_id = MoveID::from_move(&available_move)?;
+        let compressed_move_id = match move_id.rank_compress(rank_compression_map) {
+            Ok(compressed) => compressed,
+            Err(_) => {
+                continue;
+            } // This can happen if the player has wilds. We may have compressed the rank away, but it is technically still possible to play. However, we will assume that it would be functionally equivalent to simply play something higher that is still in the allowed ranks.
+        };
+        valid_actions.push(compressed_move_id);
     }
 
-    let mut normalized_action_priors = ActionProbabilities::zeros();
+    let mut normalized_action_priors = RankCompressed::new_unchecked(ActionProbabilities::zeros());
     let mut unmasked_sum = 0.0;
-    for move_id in MoveID::all() {
-        let is_valid = valid_action_mask[move_id];
+    for compressed_move_id in &valid_actions {
+        let prior = action_priors[&compressed_move_id];
 
-        if !is_valid {
-            continue;
-        }
-
-        let prior = action_priors[move_id];
-
-        normalized_action_priors[move_id] = prior;
+        normalized_action_priors[&compressed_move_id] = prior;
         unmasked_sum += prior;
     }
 
     if unmasked_sum <= 0.0 {
-        let num_valid = valid_action_mask.num_valid();
+        let num_valid = valid_actions.len();
         debug_assert!(num_valid > 0);
 
-        for move_id in MoveID::all() {
-            if valid_action_mask[move_id] {
-                normalized_action_priors[move_id] = 1.0 / num_valid as f32;
+        for compressed_move_id in &valid_actions {
+            if valid_actions.contains(&compressed_move_id) {
+                normalized_action_priors[&compressed_move_id] = 1.0 / num_valid as f32;
             }
         }
     } else {
-        for move_id in MoveID::all() {
-            normalized_action_priors[move_id] /= unmasked_sum;
+        for compressed_move_id in &valid_actions {
+            normalized_action_priors[&compressed_move_id] /= unmasked_sum;
         }
     }
 
-    return PUCTNode::new(valid_action_mask, normalized_action_priors);
+    let mut actions = SmallVec::new();
+
+    for compressed_move_id in valid_actions {
+        actions.push(PUCTAction {
+            action: compressed_move_id.clone(),
+            prior: action_priors[&compressed_move_id],
+            visit_count: 0,
+            accumulated_value: 0.0,
+        });
+    }
+
+    return Ok(PUCTNode::new(actions));
 }
 
 /// Runs a single PUCT rollout evalution of the current full information state.
@@ -277,71 +277,115 @@ pub fn puct_rollout<H: ActionPriorHeuristic>(
     world: &game::FullInformationGameState,
     search_context: &mut SearchContext<H>,
 ) -> Result<(MoveID, PlayerValues), EvaluationError> {
+    // Update search statistics
+    search_context.stats.puct_num_rollouts += 1;
+
     let mut world = world.clone();
     let mut first_action = None;
-    let mut nodes_to_update_on_return = Vec::new();
+    let mut nodes_to_update_on_return =
+        Vec::with_capacity(consts::MAX_CARD_NUMBER * consts::MAX_CARD_ORDINALITY * 2);
 
     // Worst case is playing one card per turn
     // Should theoretically multiply by the number of players, because every
     // player other than the first can pass, but we will assume that these
     // players are generally more efficient than that.
     for _ in 0..(consts::MAX_CARD_NUMBER * consts::MAX_CARD_ORDINALITY * 2) {
-        let current_player_information =
-            game::create_incomplete_information_game_state(&world, world.current_player_number);
-        let normalized_player_information =
-            normalize_incomplete_information_state(&current_player_information);
-
-        let selected_action = {
-            let exploration_factor = search_context.config.exploration_factor;
-            let heuristic = &mut *search_context.heuristic;
-            let nodes = &mut search_context.nodes;
-
-            let search_node = nodes
-                .get_or_insert_with(&normalized_player_information, || {
-                    Ok::<PUCTNode, EvaluationError>(create_search_node(
-                        &current_player_information,
-                        &normalized_player_information,
-                        heuristic,
-                    ))
-                })?
-                .expect("PUCT node was not admitted into cache");
-
-            select_puct_action(search_node, game::PlayerID::new(0), exploration_factor)
-        };
-        nodes_to_update_on_return.push((
-            selected_action,
-            world.current_player_number,
-            normalized_player_information,
-        ));
-
-        let action_move = selected_action.to_move(&current_player_information.player_hand)?;
-        if first_action.is_none() {
-            first_action = Some(selected_action);
-        }
-        match update_world(&mut world, action_move, search_context)? {
-            Some(player_values) => {
-                // First update the stats for all the nodes we visited
-                for (selected_action, player_at_time, key) in nodes_to_update_on_return {
-                    if let Some(mut search_node) = search_context.nodes.get_mut(&key) {
-                        update_puct_node(
-                            &mut *search_node,
-                            &player_values,
-                            selected_action,
-                            player_at_time,
-                            &key,
-                        );
-                    }
-                }
-
-                // Then return!
-                return Ok((
-                    first_action.expect("Tried to rollout a finished game!"),
-                    player_values,
-                ));
-            }
+        match puct_rollout_step(
+            &mut world,
+            search_context,
+            &mut nodes_to_update_on_return,
+            &mut first_action,
+        )? {
+            Some(output) => return Ok(output),
             None => {}
-        }
+        };
     }
 
     return Err(EvaluationError::RolloutError);
+}
+
+pub fn puct_rollout_step<H: ActionPriorHeuristic>(
+    world: &mut game::FullInformationGameState,
+    search_context: &mut SearchContext<H>,
+    nodes_to_update: &mut Vec<(usize, PlayerID, ZobristHash)>,
+    first_action: &mut Option<MoveID>,
+) -> Result<Option<(MoveID, PlayerValues)>, EvaluationError> {
+    // Update node stat
+    search_context.stats.puct_nodes_visited += 1;
+
+    let current_player_information =
+        game::create_incomplete_information_game_state(&world, world.current_player_number);
+    let (normalized_player_information, rank_compression_map): (
+        NormalizedIncompleteInformation,
+        RankCompressionMap,
+    ) = normalize_incomplete_information_state(&current_player_information)?;
+    let zobrist_hash = search_context
+        .zobrist_hash
+        .hash(&normalized_player_information);
+
+    let (selected_action, selected_action_index) = {
+        let exploration_factor = search_context.config.exploration_factor;
+        let heuristic = &mut *search_context.heuristic;
+        let nodes = &mut search_context.puct_nodes;
+
+        let search_node = nodes
+            .get_or_insert_with(&zobrist_hash, || {
+                search_context.stats.puct_nodes_created += 1;
+                Ok::<Box<PUCTNode>, EvaluationError>(Box::new(create_search_node(
+                    &current_player_information,
+                    &normalized_player_information,
+                    &rank_compression_map,
+                    heuristic,
+                )?))
+            })?
+            .expect("PUCT node was not admitted into cache");
+
+        search_context.stats.puct_valid_actions_seen += search_node.actions.len();
+
+        select_puct_action(
+            search_node.as_ref(),
+            &rank_compression_map,
+            exploration_factor,
+        )?
+    };
+
+    nodes_to_update.push((
+        selected_action_index,
+        world.current_player_number,
+        zobrist_hash,
+    ));
+
+    let action_move = selected_action.to_move(&current_player_information.player_hand)?;
+    if first_action.is_none() {
+        *first_action = Some(selected_action);
+    }
+    match update_world(world, action_move, search_context)? {
+        Some(player_values) => {
+            puct_backprop(&player_values, &nodes_to_update, search_context)?;
+
+            return Ok(Some((
+                first_action.expect("Tried to rollout a finished game!"),
+                player_values,
+            )));
+        }
+        None => return Ok(None),
+    }
+}
+
+pub fn puct_backprop<H: ActionPriorHeuristic>(
+    player_values: &PlayerValues,
+    nodes_to_update: &[(usize, PlayerID, ZobristHash)],
+    search_context: &mut SearchContext<H>,
+) -> Result<(), EvaluationError> {
+    for (selected_action, player_at_time, key) in nodes_to_update {
+        if let Some(mut search_node) = search_context.puct_nodes.get_mut(key) {
+            update_puct_node(
+                search_node.as_mut(),
+                &player_values,
+                *selected_action,
+                *player_at_time,
+            )?;
+        }
+    }
+    return Ok(());
 }

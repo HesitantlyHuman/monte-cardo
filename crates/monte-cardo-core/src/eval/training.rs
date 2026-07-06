@@ -4,19 +4,20 @@ use rand_distr::Distribution;
 
 use crate::game;
 
-use crate::eval::actions::{ActionMask, MoveID, MoveIDError, NUM_ACTIONS};
+use crate::eval::actions::{ActionMask, MoveID, MoveIDError};
 use crate::eval::config::{ActionPriorHeuristic, SearchConfig, SearchContext};
 use crate::eval::evaluate::{full_tree_evaluation, value_to_probabilities, EvaluationError};
 use crate::eval::normalize::{
-    normalize_incomplete_information_state, NormalizedIncompleteInformation,
+    normalize_incomplete_information_state, NormalizedIncompleteInformation, RankCompressed,
+    RankCompressible,
 };
 use crate::eval::puct::ActionProbabilities;
 
 #[derive(Debug, Clone)]
 struct TrainingExample {
     state: NormalizedIncompleteInformation,
-    action_probabilities: ActionProbabilities,
-    action_mask: ActionMask,
+    action_probabilities: RankCompressed<ActionProbabilities>,
+    action_mask: RankCompressed<ActionMask>,
 }
 
 fn generate_training_example<H: ActionPriorHeuristic>(
@@ -42,12 +43,15 @@ fn generate_training_example<H: ActionPriorHeuristic>(
         &mut search_context.rng,
     )?;
 
+    let (normalized_incomplete_information_state, rank_compression_map) =
+        normalize_incomplete_information_state(&incomplete_information_state)?;
+
     return Ok((
         selected_move,
         TrainingExample {
-            state: normalize_incomplete_information_state(&incomplete_information_state),
-            action_probabilities: action_probabilities,
-            action_mask: action_mask,
+            state: normalized_incomplete_information_state,
+            action_probabilities: action_probabilities.rank_compress(&rank_compression_map)?,
+            action_mask: action_mask.rank_compress(&rank_compression_map)?,
         },
     ));
 }
