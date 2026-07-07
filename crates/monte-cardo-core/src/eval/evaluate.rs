@@ -92,10 +92,10 @@ pub enum EvaluationError {
     NormalizationError(#[from] NormalizationError),
 }
 
-pub fn choose_best_action<H: ActionPriorHeuristic>(
+pub fn get_action_values<H: ActionPriorHeuristic>(
     incomplete_information_state: &game::IncompleteInformationGameState,
     search_context: &mut SearchContext<H>,
-) -> Result<game::Move, EvaluationError> {
+) -> Result<Vec<(game::Move, f32)>, EvaluationError> {
     debug_assert!(
         incomplete_information_state.current_player_number
             == incomplete_information_state.perspective_player_number
@@ -104,12 +104,12 @@ pub fn choose_best_action<H: ActionPriorHeuristic>(
     let (action_values, action_mask) =
         full_tree_evaluation(incomplete_information_state, search_context, 0)?;
 
-    return Ok(best_action_from_values(
-        action_values,
-        action_mask,
+    ordered_player_action_values(
+        &action_values,
+        &action_mask,
         incomplete_information_state.current_player_number,
-    )?
-    .to_move(&incomplete_information_state.player_hand)?);
+        &incomplete_information_state.player_hand,
+    )
 }
 
 fn best_action_from_values(
@@ -509,4 +509,40 @@ fn place_to_value(final_place: usize, num_players: usize, greediness: f32) -> f3
     debug_assert!(value.is_finite());
 
     value
+}
+pub fn ordered_player_action_values(
+    action_value_matrix: &ActionValueMatrix,
+    valid_action_mask: &ActionMask,
+    player: game::PlayerID,
+    current_hand: &game::PlayerHand,
+) -> Result<Vec<(game::Move, f32)>, EvaluationError> {
+    let mut action_values = Vec::new();
+
+    for move_id in MoveID::all() {
+        if !valid_action_mask[move_id] {
+            continue;
+        }
+
+        let value = action_value_matrix[move_id][player];
+
+        debug_assert!(
+            value.is_finite(),
+            "Non-finite action value for {:?}: {}",
+            move_id,
+            value,
+        );
+
+        let player_move = move_id.to_move(current_hand)?;
+
+        action_values.push((player_move, value));
+    }
+
+    action_values.sort_by(|(move_a, value_a), (move_b, value_b)| {
+        value_b
+            .partial_cmp(value_a)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| format!("{:?}", move_a).cmp(&format!("{:?}", move_b)))
+    });
+
+    Ok(action_values)
 }

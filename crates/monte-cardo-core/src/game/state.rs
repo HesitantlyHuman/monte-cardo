@@ -68,7 +68,6 @@ impl FullInformationGameState {
     }
 }
 
-#[inline(never)] // TODO: Remove
 pub fn create_incomplete_information_game_state(
     full_information_game_state: &FullInformationGameState,
     perspective_player_number: PlayerID,

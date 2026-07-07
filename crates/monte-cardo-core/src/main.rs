@@ -1,5 +1,5 @@
 fn main() {
-    let mut heuristic = monte_cardo_core::eval::NaiveHeuristic::new();
+    let mut heuristic = monte_cardo_core::eval::SimpleHeuristic::default();
     let search_config = monte_cardo_core::eval::SearchConfig::inference();
     let mut search_context =
         monte_cardo_core::eval::SearchContext::with_seed(&mut heuristic, search_config, 42);
@@ -15,12 +15,15 @@ fn main() {
             &initial_game_state,
             initial_game_state.current_player_number,
         );
-    let selected_move = monte_cardo_core::eval::choose_best_action(
+    let moves = monte_cardo_core::eval::get_action_values(
         &incomplete_information_state,
         &mut search_context,
     )
     .unwrap();
 
-    println!("Selected move is: {:?}", selected_move);
+    monte_cardo_core::debug::debug_display_player_action_values(
+        &moves,
+        initial_game_state.current_player_number,
+    );
     search_context.stats.print_stats();
 }

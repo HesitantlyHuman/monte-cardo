@@ -38,7 +38,7 @@ impl Card {
 
 const CARD_TOP: &str = "╭─────╮";
 const CARD_BOTTOM: &str = "╰─────╯";
-const CARD_EMPTY: &str = "│     │";
+const CARD_EMPTY: &str = "│  ⬦  │";
 
 impl Widget for Card {
     fn render(self, area: Rect, buf: &mut Buffer) {
