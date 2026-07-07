@@ -1,5 +1,5 @@
 fn main() {
-    let mut heuristic = monte_cardo_core::eval::SimpleHeuristic::default();
+    let mut heuristic = monte_cardo_core::eval::NaiveHeuristic::new();
     let search_config = monte_cardo_core::eval::SearchConfig::inference();
     let mut search_context =
         monte_cardo_core::eval::SearchContext::with_seed(&mut heuristic, search_config, 42);

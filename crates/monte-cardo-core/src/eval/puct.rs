@@ -6,8 +6,10 @@ use smallvec::SmallVec;
 use crate::consts;
 use crate::eval::actions::{MoveID, NUM_ACTIONS};
 use crate::eval::config::{ActionPriorHeuristic, SearchContext};
+use crate::eval::evaluate::estimate_nonterminal_values_from_hand_sizes;
 use crate::eval::evaluate::EvaluationError;
 use crate::eval::evaluate::{update_world, PlayerValues};
+use crate::eval::normalize::{left_rotate_array, undo_left_rotate_array};
 use crate::eval::normalize::{
     normalize_incomplete_information_state, NormalizedIncompleteInformation, RankCompressible,
     RankCompressionMap,
@@ -116,6 +118,7 @@ const PUCT_STACK_SIZE: usize = 4;
 pub struct PUCTNode {
     actions: SmallVec<[PUCTAction; PUCT_STACK_SIZE]>,
     times_at_node: usize,
+    accumulated_values: [f32; consts::MAX_PLAYERS],
 }
 
 impl PUCTNode {
@@ -123,7 +126,26 @@ impl PUCTNode {
         PUCTNode {
             actions: actions,
             times_at_node: 0,
+            accumulated_values: [0.0; consts::MAX_PLAYERS],
         }
+    }
+
+    fn expectation(&self, number_of_players: usize, perspective_player: PlayerID) -> PlayerValues {
+        let mut normalized_expected_values = [0.0; consts::MAX_PLAYERS];
+        for player_index in 0..number_of_players {
+            normalized_expected_values[player_index] =
+                self.accumulated_values[player_index] / self.times_at_node as f32;
+        }
+
+        let mut expected_values = [0.0; consts::MAX_PLAYERS];
+        undo_left_rotate_array(
+            &normalized_expected_values,
+            &mut expected_values,
+            number_of_players,
+            perspective_player.get(),
+        );
+
+        return PlayerValues::new(game::PlayerIndexed::new(expected_values));
     }
 }
 
@@ -192,6 +214,7 @@ fn update_puct_node(
     player_values: &PlayerValues,
     action_index: usize,
     player_at_time: game::PlayerID,
+    number_of_players: usize,
 ) -> Result<(), EvaluationError> {
     debug_assert!(
         player_values.get().iter().all(|value| value.is_finite()),
@@ -199,8 +222,20 @@ fn update_puct_node(
         player_values.get(),
     );
 
-    node.actions[action_index].accumulated_value += player_values[player_at_time];
+    let mut rotated_values = [0.0; consts::MAX_PLAYERS];
 
+    left_rotate_array(
+        player_values.get(),
+        &mut rotated_values,
+        number_of_players,
+        player_at_time.get(),
+    );
+
+    for player_index in 0..number_of_players {
+        node.accumulated_values[player_index] += rotated_values[player_index];
+    }
+
+    node.actions[action_index].accumulated_value += rotated_values[0];
     node.actions[action_index].visit_count += 1;
     node.times_at_node += 1;
 
@@ -259,7 +294,7 @@ fn create_search_node<H: ActionPriorHeuristic>(
     for compressed_move_id in valid_actions {
         actions.push(PUCTAction {
             action: compressed_move_id.clone(),
-            prior: action_priors[&compressed_move_id],
+            prior: normalized_action_priors[&compressed_move_id],
             visit_count: 0,
             accumulated_value: 0.0,
         });
@@ -289,12 +324,13 @@ pub fn puct_rollout<H: ActionPriorHeuristic>(
     // Should theoretically multiply by the number of players, because every
     // player other than the first can pass, but we will assume that these
     // players are generally more efficient than that.
-    for _ in 0..(consts::MAX_CARD_NUMBER * consts::MAX_CARD_ORDINALITY * 2) {
+    for rollout_depth in 0..(consts::MAX_CARD_NUMBER * consts::MAX_CARD_ORDINALITY * 2) {
         match puct_rollout_step(
             &mut world,
             search_context,
             &mut nodes_to_update_on_return,
             &mut first_action,
+            rollout_depth,
         )? {
             Some(output) => return Ok(output),
             None => {}
@@ -309,6 +345,7 @@ pub fn puct_rollout_step<H: ActionPriorHeuristic>(
     search_context: &mut SearchContext<H>,
     nodes_to_update: &mut Vec<(usize, PlayerID, ZobristHash)>,
     first_action: &mut Option<MoveID>,
+    rollout_depth: usize,
 ) -> Result<Option<(MoveID, PlayerValues)>, EvaluationError> {
     // Update node stat
     search_context.stats.puct_nodes_visited += 1;
@@ -323,31 +360,75 @@ pub fn puct_rollout_step<H: ActionPriorHeuristic>(
         .zobrist_hash
         .hash(&normalized_player_information);
 
-    let (selected_action, selected_action_index) = {
-        let exploration_factor = search_context.config.exploration_factor;
-        let heuristic = &mut *search_context.heuristic;
-        let nodes = &mut search_context.puct_nodes;
+    let exploration_factor = search_context.config.exploration_factor;
+    let heuristic = &mut *search_context.heuristic;
+    let nodes = &mut search_context.puct_nodes;
 
-        let search_node = nodes
-            .get_or_insert_with(&zobrist_hash, || {
-                search_context.stats.puct_nodes_created += 1;
-                Ok::<Box<PUCTNode>, EvaluationError>(Box::new(create_search_node(
-                    &current_player_information,
-                    &normalized_player_information,
-                    &rank_compression_map,
-                    heuristic,
-                )?))
-            })?
-            .expect("PUCT node was not admitted into cache");
+    let search_node = nodes
+        .get_or_insert_with(&zobrist_hash, || {
+            search_context.stats.puct_nodes_created += 1;
+            Ok::<PUCTNode, EvaluationError>(create_search_node(
+                &current_player_information,
+                &normalized_player_information,
+                &rank_compression_map,
+                heuristic,
+            )?)
+        })?
+        .expect("PUCT node was not admitted into cache");
 
-        search_context.stats.puct_valid_actions_seen += search_node.actions.len();
+    search_context.stats.puct_valid_actions_seen += search_node.actions.len();
 
-        select_puct_action(
-            search_node.as_ref(),
-            &rank_compression_map,
-            exploration_factor,
-        )?
-    };
+    if rollout_depth >= search_context.config.puct_rollout_bounds.0
+        && search_node.times_at_node >= search_context.config.puct_mature_node_min_visits
+    {
+        let estimated_values =
+            search_node.expectation(world.number_of_players, world.current_player_number);
+
+        puct_backprop(
+            &estimated_values,
+            &nodes_to_update,
+            search_context,
+            world.number_of_players,
+        )?;
+
+        return Ok(Some((
+            first_action.expect("PUCT mature node min visits is positive!"),
+            estimated_values,
+        )));
+    }
+
+    if rollout_depth >= search_context.config.puct_rollout_bounds.1 {
+        let mut unnormalized_hand_sizes = [0; consts::MAX_PLAYERS];
+
+        undo_left_rotate_array(
+            normalized_player_information.hand_sizes.get(),
+            &mut unnormalized_hand_sizes,
+            world.number_of_players,
+            world.current_player_number.get(),
+        );
+
+        let estimated_values = estimate_nonterminal_values_from_hand_sizes(
+            &world.player_placements,
+            &game::HandSizes::new(unnormalized_hand_sizes),
+            world.number_of_players,
+            search_context.config.greediness,
+        );
+
+        puct_backprop(
+            &estimated_values,
+            &nodes_to_update,
+            search_context,
+            world.number_of_players,
+        )?;
+
+        return Ok(Some((
+            first_action.expect("PUCT mature node min visits is positive!"),
+            estimated_values,
+        )));
+    }
+
+    let (selected_action, selected_action_index) =
+        { select_puct_action(search_node, &rank_compression_map, exploration_factor)? };
 
     nodes_to_update.push((
         selected_action_index,
@@ -361,7 +442,12 @@ pub fn puct_rollout_step<H: ActionPriorHeuristic>(
     }
     match update_world(world, action_move, search_context)? {
         Some(player_values) => {
-            puct_backprop(&player_values, &nodes_to_update, search_context)?;
+            puct_backprop(
+                &player_values,
+                &nodes_to_update,
+                search_context,
+                world.number_of_players,
+            )?;
 
             return Ok(Some((
                 first_action.expect("Tried to rollout a finished game!"),
@@ -376,14 +462,16 @@ pub fn puct_backprop<H: ActionPriorHeuristic>(
     player_values: &PlayerValues,
     nodes_to_update: &[(usize, PlayerID, ZobristHash)],
     search_context: &mut SearchContext<H>,
+    number_of_players: usize,
 ) -> Result<(), EvaluationError> {
     for (selected_action, player_at_time, key) in nodes_to_update {
         if let Some(mut search_node) = search_context.puct_nodes.get_mut(key) {
             update_puct_node(
-                search_node.as_mut(),
+                &mut search_node,
                 &player_values,
                 *selected_action,
                 *player_at_time,
+                number_of_players,
             )?;
         }
     }

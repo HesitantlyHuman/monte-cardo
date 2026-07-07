@@ -263,6 +263,21 @@ pub fn left_rotate_array<T: Copy>(
     }
 }
 
+pub fn undo_left_rotate_array<T: Copy>(
+    array: &[T],
+    target: &mut [T],
+    rotation_length: usize,
+    zero_destination: usize,
+) {
+    debug_assert!(rotation_length <= array.len());
+    debug_assert!(rotation_length <= target.len());
+    debug_assert!(zero_destination < rotation_length);
+
+    let inverse_zero = (rotation_length - zero_destination) % rotation_length;
+
+    left_rotate_array(array, target, rotation_length, inverse_zero);
+}
+
 fn normalize_trick(
     trick: &game::Trick,
     current_player_number: game::PlayerID,

@@ -390,11 +390,6 @@ fn placements_to_value(
 
     let mut values = PlayerValues::zeros();
 
-    if num_players == 1 {
-        values[PlayerID::new(0)] = 1.0;
-        return values;
-    }
-
     for player_id in PlayerID::all_player_ids(num_players) {
         let placement = placements[player_id];
 
@@ -406,23 +401,44 @@ fn placements_to_value(
             placement
         };
 
-        debug_assert!(final_place >= 1);
-        debug_assert!(final_place <= num_players);
-
-        // Convert:
-        // place 1          -> 1.0
-        // place num_players -> 0.0
-        let linear_value = 1.0 - ((final_place - 1) as f32 / (num_players - 1) as f32);
-
-        debug_assert!(linear_value >= 0.0);
-        debug_assert!(linear_value <= 1.0);
-
-        values[player_id] = linear_value.powf(greediness);
-
-        debug_assert!(values[player_id].is_finite());
+        values[player_id] = place_to_value(final_place, num_players, greediness);
     }
 
-    return values;
+    values
+}
+
+pub fn estimate_nonterminal_values_from_hand_sizes(
+    placements: &game::PlayerPlacements,
+    hand_sizes: &game::HandSizes,
+    num_players: usize,
+    greediness: f32,
+) -> PlayerValues {
+    debug_assert!(num_players > 0);
+    debug_assert!(num_players <= consts::MAX_PLAYERS);
+    debug_assert!(greediness > 0.0 && greediness.is_finite());
+
+    let mut ordered_players: Vec<PlayerID> = PlayerID::all_player_ids(num_players).collect();
+
+    ordered_players.sort_by_key(|&player_id| {
+        let placement = placements[player_id];
+
+        if placement != 0 {
+            // Already-out players are ordered first by actual placement.
+            (0usize, placement, 0usize, player_id.get())
+        } else {
+            // Unplaced players are ordered by fewer cards remaining.
+            (1usize, usize::MAX, hand_sizes[player_id], player_id.get())
+        }
+    });
+
+    let mut values = PlayerValues::zeros();
+
+    for (place_index, player_id) in ordered_players.into_iter().enumerate() {
+        let estimated_place = place_index + 1;
+        values[player_id] = place_to_value(estimated_place, num_players, greediness);
+    }
+
+    values
 }
 
 pub fn value_to_probabilities(
@@ -468,4 +484,29 @@ pub fn value_to_probabilities(
     }
 
     return probabilities;
+}
+
+fn place_to_value(final_place: usize, num_players: usize, greediness: f32) -> f32 {
+    debug_assert!(final_place >= 1);
+    debug_assert!(final_place <= num_players);
+    debug_assert!(num_players > 0);
+    debug_assert!(greediness > 0.0 && greediness.is_finite());
+
+    if num_players == 1 {
+        return 1.0;
+    }
+
+    // Convert:
+    // place 1           -> 1.0
+    // place num_players -> 0.0
+    let linear_value = 1.0 - ((final_place - 1) as f32 / (num_players - 1) as f32);
+
+    debug_assert!(linear_value >= 0.0);
+    debug_assert!(linear_value <= 1.0);
+
+    let value = linear_value.powf(greediness);
+
+    debug_assert!(value.is_finite());
+
+    value
 }

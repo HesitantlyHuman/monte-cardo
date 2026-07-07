@@ -50,7 +50,7 @@ impl SimpleHeuristic {
     }
 
     pub fn default() -> Self {
-        return Self::new(50.0, 3.0, 0.0, 0.6);
+        return Self::new(50.0, 3.0, 0.15, 0.6);
     }
 }
 

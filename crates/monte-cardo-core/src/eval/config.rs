@@ -37,10 +37,10 @@ impl SearchConfig {
             temperature: 0.2,
             greediness: 1.5,
             full_tree_depth: 1,
-            num_worlds: 25,
+            num_worlds: 50,
             puct_rollouts_per_leaf: 100,
-            puct_rollout_bounds: (10, 200),
-            puct_mature_node_min_visits: 256,
+            puct_rollout_bounds: (5, 60),
+            puct_mature_node_min_visits: 64,
             puct_node_capacity: 8_000_000,
         }
     }
@@ -51,10 +51,10 @@ impl SearchConfig {
             temperature: temperature_schedule,
             greediness: 1.5,
             full_tree_depth: 1,
-            num_worlds: 25,
+            num_worlds: 50,
             puct_rollouts_per_leaf: 100,
-            puct_rollout_bounds: (10, 200),
-            puct_mature_node_min_visits: 256,
+            puct_rollout_bounds: (5, 60),
+            puct_mature_node_min_visits: 64,
             puct_node_capacity: 8_000_000,
         }
     }
@@ -132,7 +132,7 @@ impl SearchStats {
 
 pub struct SearchContext<'a, H: ActionPriorHeuristic> {
     pub heuristic: &'a mut H,
-    pub puct_nodes: Cache<ZobristHash, Box<PUCTNode>>,
+    pub puct_nodes: Cache<ZobristHash, PUCTNode>,
     pub zobrist_hash: ZobristTable,
     pub config: SearchConfig,
     pub rng: SmallRng,
