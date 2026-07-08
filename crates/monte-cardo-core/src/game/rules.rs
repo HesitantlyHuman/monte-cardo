@@ -172,7 +172,7 @@ pub fn update_full_information_game_state(
 pub fn update_incomplete_information_game_state(
     game_state: &mut IncompleteInformationGameState,
     player_move: Move,
-) -> Result<(), GameLogicError> {
+) -> Result<bool, GameLogicError> {
     match player_move {
         Move::Play(play) => {
             if game_state.current_player_number != game_state.perspective_player_number {
@@ -219,7 +219,7 @@ pub fn update_incomplete_information_game_state(
                     }
                 }
 
-                return Ok(());
+                return Ok(true);
             }
 
             // Reset the has_passed array
@@ -232,8 +232,9 @@ pub fn update_incomplete_information_game_state(
             ) {
                 Some(player_number) => {
                     game_state.current_player_number = player_number;
+                    return Ok(false);
                 }
-                None => {}
+                None => return Ok(true),
             };
         }
         Move::Pass => {
@@ -250,7 +251,7 @@ pub fn update_incomplete_information_game_state(
                     }
                 }
 
-                return Ok(());
+                return Ok(true);
             }
 
             // Update the has_passed array
@@ -290,12 +291,14 @@ pub fn update_incomplete_information_game_state(
                     {
                         Some(player_number) => {
                             game_state.current_player_number = player_number;
+                            return Ok(false);
                         }
-                        None => {}
+                        None => return Ok(true),
                     };
                 } else {
                     // Trick winner starts the next trick
                     game_state.current_player_number = trick_winner;
+                    return Ok(false);
                 }
             } else {
                 // Update the player number
@@ -306,11 +309,10 @@ pub fn update_incomplete_information_game_state(
                         game_state.number_of_players,
                     )
                     .unwrap();
+                return Ok(false);
             }
         }
     }
-
-    return Ok(());
 }
 
 pub fn get_available_moves(hand: &PlayerHand, top_set: &Option<TopSet>) -> Vec<Move> {
