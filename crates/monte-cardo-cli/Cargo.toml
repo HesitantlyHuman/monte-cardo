@@ -1,0 +1,14 @@
+[package]
+name = "monte-cardo-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+monte-cardo-core = { path = "../monte-cardo-core" }
+
+[profile.release]
+opt-level = 3
+lto = true

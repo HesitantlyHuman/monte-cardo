@@ -1,89 +1,15 @@
-# ladder-shedding
-Simple MCTS based AI for the card game ladder shedding. The heuristic is currently very simple and not very good, but the MCTS is functional and can be used to play the game.
+# Monte Cardo
+Monte Cardo is a Monte Carlo Tree Search (MCTS) based game tree evaluator (read AI) for ladder shedding/climbing games like [Scum](https://en.wikipedia.org/wiki/President_(card_game)) or [The Great Dalmuti](https://en.wikipedia.org/wiki/The_Great_Dalmuti).
 
-A model will be trained against the MCTS to improve the heuristic.
+## Using Monte Cardo
+<!-- TODO -->
 
-## TODO
-[ ] Add UCT to monte carlo system
-[x] Find why we are loading an infinite value for some targets
-[x] Add a progress bar for the data generation process
-[ ] Verify that the data generation process can start and stop correctly
-[ ] Parallelize the data generation process?
-[x] Update the data generation to do random decks and numbers of players
-[x] Validate the rust generated data and write a loader for it
-[ ] Write the model and try training on small subset of data to validate and debug
-[ ] Add checkpointing and hyperparameter search to model training?
-[x] Write a console application to play against the model
-[ ] Update the console application to allow for giving suggestions for playing an outside game
-[ ] Test the current lame heuristic with the playing, to validate that it does make reasonable decisions
-[ ] setup.py
-[ ] auto validation to select best heuristic
-[ ] Get rust to handle the python environment and create a command line interface which does everything
-[ ] Change all references of ordinality to rank for consistent terminology
+## How does it work?
+<!-- TODO -->
 
-## Random installed things
-conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
-conda install gxx_linux-64 gcc_linux-64
-ConfigSpace
-python 3.11 (sadge)
-pip install swig
-pip install smac
-pip install matplotlib
+## Performance Testing
+Monte Cardo uses `criterion.rs` to do performance and regression testing. To start the benchmarks, simply run the following:
 
-time to train one k-fold with cpu: 180.47
-
-### Model
-current best configuration:
-Configuration(values={
-  'model.dropout': 0.3103349040085379,
-  'model.hidden_size': 644,
-  'model.non_linearity': 'gelu',
-  'model.num_hidden_layers': 1,
-  'model.type': 'feedforward',
-  'optimizer.betas.1': 0.8852826026277925,
-  'optimizer.betas.2': 0.990006239463997,
-  'optimizer.learning_rate': 0.000587031691530561,
-  'optimizer.learning_rate_schedule': 'cosine_warm_restarts',
-  'optimizer.weight_decay': 0.007470556320920037,
-  'training.batch_size': 149,
-  'training.num_epochs': 97,
-})
-
-value: 0.37807561578574
-
-
-## UI
-(Maybe a crown symbol for the current leader?)
-What the UI needs:
-- Menu View
-	- Title
-	- Buttons to select which mode you need (playing against AIs, or playing against humans)
-	- Button for rules screen
-- Rules screen
-  - Rules
-  - Button to go back to menu
-- Setup View
-	- Select number of each type of card
-	- Select number of players
-  - Reverse the card display order
-- Game View
-	- Player hand
-	- Way to select your play
-	- Opponents and their hands
-	- Current set / table
-	- Instructions for controls
-	- Indication of whose turn it is
-	- A thinking indicator when the AI is making its turn
-	- A suggested move when it is your turn
-
-# Random Thoughts
-- Train a model to generate hypotheticals for the MCTS to explore
-  - Would the value of the current state be the minimum or the mean of the hypotheticals?
-    - If we are talking about Nash equilibria, then the value of the current state would be the minimum of the hypotheticals, assuming that the outcome of the hypotheticals is not worse than optimal play. You would almost want to do multiple rollouts for each hypothetical to get a better idea of the value of the hypothetical, and then take the minimum of the hypotheticals.
-- I like the ideas in the DeepNash paper, where they add an additional condition that the model should remain similar to its past iterations.
-
-
-# New notes / A better approach?
-- We should be using min-max at the top of the tree, and use MCTS to improve our heuristics. MCTS does a poor job of simulating opponents who are using optimal strategy, which does not seem to do well in this type of game. (I wonder if you could formalize this notion of where MCTS would excel and where it would not)
-- The other issue is that we are treating the hypothetical states as equally likely, when they are not. However, if we operate under the worst case scenario assumption, then this is less of a problem. That is because by considering situations which are bad for us with higher weight, we are implicitly assuming perfect play on the part of our opponents. This may not be optimal against weak opponents, and is more pessimistic that it needs to be, however.
-- **See photo in phone for diagram of new approach, mixing min-max and MCTS**
+```bash
+cargo bench
+```

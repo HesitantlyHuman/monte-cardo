@@ -1,0 +1,33 @@
+[package]
+name = "monte-cardo-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[lib]
+name = "monte_cardo_core"
+path = "src/lib.rs"
+
+[dependencies]
+rand.workspace = true
+rand_distr.workspace = true
+thiserror.workspace = true
+quick_cache.workspace = true
+smallvec.workspace = true
+
+[dev-dependencies]
+criterion = {version = "0.8.2", features = ["html_reports"]}
+
+[[bench]]
+name = "world_generation"
+harness = false
+
+[[bench]]
+name = "simple_valid"
+harness = false
+
+[[bench]]
+name = "sparsity_cells"
+harness = false
