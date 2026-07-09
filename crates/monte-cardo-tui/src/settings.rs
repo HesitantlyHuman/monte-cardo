@@ -1,4 +1,8 @@
+use core::fmt;
+
 use monte_cardo_core::{consts, eval::SearchConfig};
+
+use crate::rank_count_editor::RankCountEditorState;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GameMode {
@@ -15,9 +19,38 @@ impl GameMode {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SolverHeuristic {
+    Naive,
+    Simple,
+}
+
+impl SolverHeuristic {
+    pub fn from_text(text: &str) -> Option<Self> {
+        let text = text.trim().to_lowercase();
+
+        match text.as_str() {
+            "n" | "na" | "nai" | "naiv" | "naive" => Some(Self::Naive),
+            "s" | "si" | "sim" | "simp" | "simpl" | "simple" => Some(Self::Simple),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Display for SolverHeuristic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let type_string = match self {
+            Self::Naive => "Naive",
+            Self::Simple => "Simple",
+        };
+        write!(f, "{}", type_string)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct SolverSettings {
     pub enabled: bool,
+    pub heuristic: SolverHeuristic,
     pub exploration_factor: f32,
     pub temperature: f32,
     pub greediness: f32,
@@ -36,6 +69,7 @@ impl SolverSettings {
 
         Self {
             enabled: true,
+            heuristic: SolverHeuristic::Naive,
             exploration_factor: config.exploration_factor,
             temperature: config.temperature,
             greediness: config.greediness,
@@ -123,6 +157,7 @@ pub enum PlayerPanelSelection {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SettingsField {
+    HeuristicType,
     InvertedOrdering,
     AiSuggestionsEnabled,
     SolverEnabled,
@@ -148,6 +183,7 @@ impl SettingsField {
         fields.push(Self::SolverEnabled);
 
         if settings.solver.enabled {
+            fields.push(Self::HeuristicType);
             fields.push(Self::ExplorationFactor);
             fields.push(Self::Temperature);
             fields.push(Self::Greediness);
@@ -166,6 +202,7 @@ impl SettingsField {
 
     pub fn label(self) -> &'static str {
         match self {
+            Self::HeuristicType => "Search Heuristic Type",
             Self::InvertedOrdering => "Inverted Ordering",
             Self::AiSuggestionsEnabled => "AI Suggestions and Move Values",
             Self::SolverEnabled => "AI Solver",
@@ -185,6 +222,7 @@ impl SettingsField {
 
     pub fn value(self, settings: &GameSettings) -> String {
         match self {
+            Self::HeuristicType => settings.solver.heuristic.to_string(),
             Self::InvertedOrdering => enabled_disabled(settings.inverted_ordering).to_string(),
             Self::AiSuggestionsEnabled => {
                 enabled_disabled(settings.ai_suggestions_enabled).to_string()
@@ -222,6 +260,22 @@ impl SettingsField {
 
     pub fn adjust(self, settings: &mut GameSettings, delta: isize) {
         match self {
+            Self::HeuristicType => match settings.solver.heuristic {
+                SolverHeuristic::Naive => {
+                    if delta > 0 {
+                        settings.solver.heuristic = SolverHeuristic::Simple;
+                    } else if delta < 0 {
+                        settings.solver.heuristic = SolverHeuristic::Simple;
+                    }
+                }
+                SolverHeuristic::Simple => {
+                    if delta > 0 {
+                        settings.solver.heuristic = SolverHeuristic::Naive;
+                    } else if delta < 0 {
+                        settings.solver.heuristic = SolverHeuristic::Naive;
+                    }
+                }
+            },
             Self::InvertedOrdering => {
                 if delta != 0 {
                     settings.inverted_ordering = !settings.inverted_ordering;
@@ -312,6 +366,11 @@ impl SettingsField {
         }
 
         match self {
+            Self::HeuristicType => {
+                if let Some(value) = SolverHeuristic::from_text(text) {
+                    settings.solver.heuristic = value;
+                }
+            }
             Self::ExplorationFactor => {
                 if let Ok(value) = text.parse::<f32>() {
                     settings.solver.exploration_factor = value.clamp(0.0, 10.0);
@@ -380,9 +439,7 @@ pub struct SettingsFormState {
 
     pub mode_cursor: GameMode,
 
-    pub deck_rank: usize,
-    pub deck_editing: bool,
-    pub deck_edit_buffer: String,
+    pub deck_editor: RankCountEditorState,
 
     pub player_selection: PlayerPanelSelection,
     pub player_name_editing: bool,
@@ -401,9 +458,7 @@ impl SettingsFormState {
 
             mode_cursor: GameMode::PlayComputers,
 
-            deck_rank: 0,
-            deck_editing: false,
-            deck_edit_buffer: String::new(),
+            deck_editor: RankCountEditorState::new(),
 
             player_selection: PlayerPanelSelection::NumberOfPlayers,
             player_name_editing: false,
@@ -417,8 +472,7 @@ impl SettingsFormState {
     }
 
     pub fn clear_editing(&mut self) {
-        self.deck_editing = false;
-        self.deck_edit_buffer.clear();
+        self.deck_editor.finish_editing();
 
         self.player_name_editing = false;
         self.player_count_editing = false;
@@ -429,7 +483,7 @@ impl SettingsFormState {
     }
 
     pub fn clamp_to_settings(&mut self, settings: &GameSettings) {
-        self.deck_rank = self.deck_rank.min(consts::MAX_CARD_ORDINALITY - 1);
+        self.deck_editor.clamp_rank();
 
         if let PlayerPanelSelection::PlayerName(index) = self.player_selection {
             if index >= settings.number_of_players {
@@ -439,6 +493,7 @@ impl SettingsFormState {
         }
 
         let rules_len = SettingsField::visible_rules(settings).len();
+
         if rules_len == 0 {
             self.rules_index = 0;
         } else if self.rules_index >= rules_len {
@@ -460,7 +515,7 @@ impl SettingsFormState {
     pub fn focus_deck_start(&mut self) {
         self.clear_editing();
         self.focus = SettingsFocus::Deck;
-        self.deck_rank = 0;
+        self.deck_editor.reset_to_rank(0);
     }
 
     pub fn focus_players(&mut self) {
@@ -488,21 +543,15 @@ impl SettingsFormState {
     }
 
     pub fn move_deck_rank(&mut self, delta: isize) {
-        if delta > 0 {
-            self.deck_rank = (self.deck_rank + 1).min(consts::MAX_CARD_ORDINALITY - 1);
-        } else if delta < 0 {
-            self.deck_rank = self.deck_rank.saturating_sub(1);
-        }
+        self.deck_editor.move_rank(delta);
     }
 
     pub fn start_deck_editing(&mut self) {
-        self.deck_editing = true;
-        self.deck_edit_buffer.clear();
+        self.deck_editor.start_editing();
     }
 
     pub fn finish_deck_editing(&mut self) {
-        self.deck_editing = false;
-        self.deck_edit_buffer.clear();
+        self.deck_editor.finish_editing();
     }
 
     pub fn move_player_selection_up(&mut self) -> bool {

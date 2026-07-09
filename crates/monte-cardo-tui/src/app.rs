@@ -1,6 +1,11 @@
 use std::io;
 
+use crate::live_widgets::{
+    LivePlayerColumn, LiveSetupFocus, LiveSetupPage, LiveSetupState, ObservedAction,
+    ObservedMoveFocus, ObservedMoveInputState, ObservedMovePanel,
+};
 use crate::main_menu_widgets::MainMenu;
+use crate::rank_count_editor::fixed_max_counts;
 use crate::settings_widgets::SettingsPage;
 use crate::{
     cards,
@@ -31,20 +36,70 @@ pub enum Screen {
     GameOver,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct PendingSolverRequest {
+    request_id: u64,
+    purpose: SolverPurpose,
+}
+
+#[derive(Debug, Clone)]
+pub enum SessionState {
+    Full(core_game::FullInformationGameState),
+    Live(core_game::IncompleteInformationGameState),
+}
+
 #[derive(Debug, Clone)]
 pub struct GameSession {
     pub mode: GameMode,
-    pub game_state: core_game::FullInformationGameState,
+    pub state: SessionState,
     pub trick_history: Vec<cards::TrickHistoryEntry>,
     pub player_names: Vec<String>,
     pub ui_player_number: usize,
     pub current_selected_move: Option<usize>,
 }
 
-#[derive(Debug, Clone, Copy)]
-struct PendingSolverRequest {
-    request_id: u64,
-    purpose: SolverPurpose,
+impl GameSession {
+    pub fn number_of_players(&self) -> usize {
+        match &self.state {
+            SessionState::Full(state) => state.number_of_players,
+            SessionState::Live(state) => state.number_of_players,
+        }
+    }
+
+    pub fn current_player_number(&self) -> core_game::PlayerID {
+        match &self.state {
+            SessionState::Full(state) => state.current_player_number,
+            SessionState::Live(state) => state.current_player_number,
+        }
+    }
+
+    pub fn placement_for(&self, player_id: core_game::PlayerID) -> usize {
+        match &self.state {
+            SessionState::Full(state) => state.player_placements[player_id],
+            SessionState::Live(state) => state.player_placements[player_id],
+        }
+    }
+
+    pub fn incomplete_state_for_solver(
+        &self,
+        perspective_player_number: core_game::PlayerID,
+    ) -> core_game::IncompleteInformationGameState {
+        match &self.state {
+            SessionState::Full(game_state) => core_game::create_incomplete_information_game_state(
+                game_state,
+                perspective_player_number,
+            ),
+
+            SessionState::Live(game_state) => {
+                debug_assert_eq!(
+                    game_state.perspective_player_number, perspective_player_number,
+                    "Live mode can only solve from the known player's perspective"
+                );
+
+                game_state.clone()
+            }
+        }
+    }
 }
 
 pub struct App {
@@ -52,6 +107,8 @@ pub struct App {
     main_menu_index: usize,
     settings: GameSettings,
     settings_form: SettingsFormState,
+    live_setup: LiveSetupState,
+    observed_move: ObservedMoveInputState,
     session: Option<GameSession>,
 
     solver_client: SolverClient,
@@ -69,6 +126,8 @@ impl App {
             main_menu_index: 0,
             settings: GameSettings::default(),
             settings_form: SettingsFormState::new(),
+            live_setup: LiveSetupState::new(),
+            observed_move: ObservedMoveInputState::new(),
             session: None,
 
             solver_client: SolverClient::new(),
@@ -151,30 +210,16 @@ impl App {
     }
 
     fn render_live_hand_input(&self, frame: &mut Frame, area: Rect) {
-        let lines = vec![
-            Line::from(Span::styled(
-                "Live Hand Input",
-                Style::default().add_modifier(Modifier::BOLD),
-            )),
-            Line::from(""),
-            Line::from("This screen is a placeholder for now."),
-            Line::from("Eventually this will let the player input their dealt cards."),
-            Line::from(""),
-            Line::from("Enter : Start temporary random game"),
-            Line::from("Esc : Settings"),
-        ];
+        let panel = centered_rect(area, 96, area.height.saturating_sub(2).min(20));
 
-        let widget = Paragraph::new(lines)
-            .block(
-                Block::new()
-                    .title("Play Live")
-                    .borders(Borders::ALL)
-                    .border_type(BorderType::Thick),
-            )
-            .alignment(Alignment::Center)
-            .wrap(Wrap { trim: true });
-
-        frame.render_widget(widget, centered_rect(area, 72, 14));
+        frame.render_widget(
+            LiveSetupPage::new(
+                &self.settings,
+                &self.live_setup,
+                self.solver_error.as_deref(),
+            ),
+            panel,
+        );
     }
 
     fn render_playing(&self, frame: &mut Frame, area: Rect) {
@@ -189,17 +234,53 @@ impl App {
             .and_then(|values| values.first())
             .map(|(player_move, _value)| *player_move);
 
-        let widget = view_model::build_game_widget(
-            session.game_state.number_of_players,
-            session.ui_player_number,
-            session.current_selected_move,
-            ai_suggestion,
-            &session.game_state,
-            &session.trick_history,
-            &session.player_names,
-        );
+        match &session.state {
+            SessionState::Full(game_state) => {
+                let widget = view_model::build_game_widget(
+                    game_state.number_of_players,
+                    session.ui_player_number,
+                    session.current_selected_move,
+                    ai_suggestion,
+                    game_state,
+                    &session.trick_history,
+                    &session.player_names,
+                );
 
-        frame.render_widget(widget, area);
+                frame.render_widget(widget, area);
+            }
+
+            SessionState::Live(game_state) => {
+                let widget = view_model::build_incomplete_game_widget(
+                    session.ui_player_number,
+                    session.current_selected_move,
+                    ai_suggestion,
+                    game_state,
+                    &session.trick_history,
+                    &session.player_names,
+                );
+
+                frame.render_widget(widget, area);
+            }
+        }
+
+        if let Some(session) = &self.session {
+            if let SessionState::Live(state) = &session.state {
+                if state.current_player_number != state.perspective_player_number {
+                    let player_name = session
+                        .player_names
+                        .get(state.current_player_number.get())
+                        .map(String::as_str)
+                        .unwrap_or("Opponent");
+
+                    let panel = centered_rect(area, 58, 10);
+
+                    frame.render_widget(
+                        ObservedMovePanel::new(&self.observed_move, player_name),
+                        panel,
+                    );
+                }
+            }
+        }
 
         if let Some(message) = self.solver_status_message() {
             let overlay = Rect::new(area.x + 2, area.y + 1, area.width.saturating_sub(4), 1);
@@ -219,12 +300,13 @@ impl App {
         };
 
         let mut ordered_players: Vec<_> =
-            core_game::PlayerID::all_player_ids(session.game_state.number_of_players).collect();
+            core_game::PlayerID::all_player_ids(session.number_of_players()).collect();
 
         ordered_players.sort_by_key(|&player_id| {
-            let placement = session.game_state.player_placements[player_id];
+            let placement = session.placement_for(player_id);
+
             if placement == 0 {
-                session.game_state.number_of_players
+                session.number_of_players()
             } else {
                 placement
             }
@@ -323,35 +405,56 @@ impl App {
     }
 
     fn handle_deck_settings_key(&mut self, key: KeyEvent) {
-        if self.settings_form.deck_editing {
+        let max_counts = fixed_max_counts(99);
+
+        if self.settings_form.deck_editor.editing {
             match key.code {
                 KeyCode::Esc | KeyCode::Enter => {
-                    self.settings_form.finish_deck_editing();
+                    self.settings_form.deck_editor.finish_editing();
                 }
+
+                KeyCode::Left => {
+                    self.settings_form.deck_editor.finish_editing();
+                    self.settings_form.deck_editor.move_rank(-1);
+                }
+
+                KeyCode::Right => {
+                    self.settings_form.deck_editor.finish_editing();
+                    self.settings_form.deck_editor.move_rank(1);
+                }
+
                 KeyCode::Up => {
-                    adjust_deck_count(&mut self.settings, self.settings_form.deck_rank, 1);
-                    self.settings_form.deck_edit_buffer.clear();
+                    self.settings_form.deck_editor.adjust_count(
+                        &mut self.settings.deck,
+                        &max_counts,
+                        1,
+                    );
+                    self.settings_form.deck_editor.edit_buffer.clear();
                 }
+
                 KeyCode::Down => {
-                    adjust_deck_count(&mut self.settings, self.settings_form.deck_rank, -1);
-                    self.settings_form.deck_edit_buffer.clear();
+                    self.settings_form.deck_editor.adjust_count(
+                        &mut self.settings.deck,
+                        &max_counts,
+                        -1,
+                    );
+                    self.settings_form.deck_editor.edit_buffer.clear();
                 }
+
                 KeyCode::Char(c) if c.is_ascii_digit() => {
-                    self.settings_form.deck_edit_buffer.push(c);
-                    set_deck_count_from_text(
-                        &mut self.settings,
-                        self.settings_form.deck_rank,
-                        &self.settings_form.deck_edit_buffer,
+                    self.settings_form.deck_editor.input_digit(
+                        &mut self.settings.deck,
+                        &max_counts,
+                        c,
                     );
                 }
+
                 KeyCode::Backspace => {
-                    self.settings_form.deck_edit_buffer.pop();
-                    set_deck_count_from_text(
-                        &mut self.settings,
-                        self.settings_form.deck_rank,
-                        &self.settings_form.deck_edit_buffer,
-                    );
+                    self.settings_form
+                        .deck_editor
+                        .backspace_digit(&mut self.settings.deck, &max_counts);
                 }
+
                 _ => {}
             }
 
@@ -360,9 +463,9 @@ impl App {
 
         match key.code {
             KeyCode::Esc => self.screen = Screen::MainMenu,
-            KeyCode::Left => self.settings_form.move_deck_rank(-1),
-            KeyCode::Right => self.settings_form.move_deck_rank(1),
-            KeyCode::Enter => self.settings_form.start_deck_editing(),
+            KeyCode::Left => self.settings_form.deck_editor.move_rank(-1),
+            KeyCode::Right => self.settings_form.deck_editor.move_rank(1),
+            KeyCode::Enter => self.settings_form.deck_editor.start_editing(),
             KeyCode::Up => self.settings_form.focus_mode(),
             KeyCode::Down => self.settings_form.focus_players(),
             _ => {}
@@ -530,11 +633,180 @@ impl App {
         }
     }
 
-    fn handle_live_hand_input_key(&mut self, key: KeyEvent) {
+    fn handle_live_setup_hand_key(&mut self, key: KeyEvent) {
+        if self.live_setup.hand_editor.editing {
+            match key.code {
+                KeyCode::Esc | KeyCode::Enter => {
+                    self.live_setup.finish_hand_editing();
+                }
+
+                KeyCode::Left => {
+                    self.live_setup.finish_hand_editing();
+                    self.live_setup.move_hand_rank(-1);
+                }
+
+                KeyCode::Right => {
+                    self.live_setup.finish_hand_editing();
+                    self.live_setup.move_hand_rank(1);
+                }
+
+                KeyCode::Up => {
+                    self.live_setup.adjust_hand_count(&self.settings, 1);
+                    self.live_setup.hand_editor.edit_buffer.clear();
+                }
+
+                KeyCode::Down => {
+                    self.live_setup.adjust_hand_count(&self.settings, -1);
+                    self.live_setup.hand_editor.edit_buffer.clear();
+                }
+
+                KeyCode::Char(c) if c.is_ascii_digit() => {
+                    self.live_setup.input_hand_digit(&self.settings, c);
+                }
+
+                KeyCode::Backspace => {
+                    self.live_setup.backspace_hand_digit(&self.settings);
+                }
+
+                _ => {}
+            }
+
+            return;
+        }
+
         match key.code {
             KeyCode::Esc => self.screen = Screen::Settings,
-            KeyCode::Enter => self.start_new_game(),
+            KeyCode::Left => self.live_setup.move_hand_rank(-1),
+            KeyCode::Right => self.live_setup.move_hand_rank(1),
+            KeyCode::Enter => self.live_setup.start_hand_editing(),
+            KeyCode::Down => self.live_setup.focus = LiveSetupFocus::Players,
+            KeyCode::Up => self.live_setup.focus = LiveSetupFocus::Start,
             _ => {}
+        }
+    }
+
+    fn handle_live_setup_players_key(&mut self, key: KeyEvent) {
+        if self.live_setup.hand_size_editing {
+            match key.code {
+                KeyCode::Esc | KeyCode::Enter => {
+                    self.live_setup.finish_hand_size_editing();
+                }
+
+                KeyCode::Up | KeyCode::Right => {
+                    self.live_setup.adjust_hand_size(&self.settings, 1);
+                    self.live_setup.hand_size_edit_buffer.clear();
+                }
+
+                KeyCode::Down | KeyCode::Left => {
+                    self.live_setup.adjust_hand_size(&self.settings, -1);
+                    self.live_setup.hand_size_edit_buffer.clear();
+                }
+
+                KeyCode::Char(c) if c.is_ascii_digit() => {
+                    self.live_setup.input_hand_size_digit(&self.settings, c);
+                }
+
+                KeyCode::Backspace => {
+                    self.live_setup.backspace_hand_size_digit();
+                }
+
+                _ => {}
+            }
+
+            return;
+        }
+
+        match key.code {
+            KeyCode::Esc => self.screen = Screen::Settings,
+
+            KeyCode::Left => self.live_setup.move_player_column(-1),
+            KeyCode::Right => self.live_setup.move_player_column(1),
+
+            KeyCode::Up => {
+                if self.live_setup.hand_size_player == 0 {
+                    self.live_setup.focus = LiveSetupFocus::Hand;
+                } else if self.live_setup.hand_size_player == 1
+                    && self.live_setup.player_column == LivePlayerColumn::HandSize
+                {
+                    self.live_setup.focus = LiveSetupFocus::Hand;
+                } else {
+                    self.live_setup.move_hand_size_player(&self.settings, -1);
+                }
+            }
+
+            KeyCode::Down => {
+                if self.live_setup.hand_size_player + 1 >= self.settings.number_of_players {
+                    self.live_setup.focus = LiveSetupFocus::Start;
+                } else {
+                    self.live_setup.move_hand_size_player(&self.settings, 1);
+                }
+            }
+
+            KeyCode::Enter => match self.live_setup.player_column {
+                LivePlayerColumn::StartingPlayer => {
+                    self.live_setup.select_current_player_as_starting_player();
+                }
+                LivePlayerColumn::HandSize => {
+                    self.live_setup.start_hand_size_editing();
+                }
+            },
+
+            _ => {}
+        }
+    }
+
+    fn start_live_game_from_setup(&mut self) {
+        let player_hand =
+            core_game::PlayerHand::new(self.live_setup.hand_counts.map(core_game::CardCount::new));
+
+        let perspective_player = core_game::PlayerID::new(0);
+        let starting_player = core_game::PlayerID::new(self.live_setup.starting_player);
+
+        let live_state = match create_initial_live_incomplete_state(
+            &self.settings,
+            player_hand,
+            self.live_setup.hand_sizes,
+            perspective_player,
+            starting_player,
+        ) {
+            Ok(state) => state,
+            Err(error) => {
+                self.solver_error = Some(error);
+                return;
+            }
+        };
+
+        self.session = Some(GameSession {
+            mode: GameMode::PlayLive,
+            state: SessionState::Live(live_state),
+            trick_history: Vec::new(),
+            player_names: self.settings.player_names.clone(),
+            ui_player_number: 0,
+            current_selected_move: None,
+        });
+
+        self.observed_move.reset_for_next_move();
+        self.pending_solver_request = None;
+        self.current_action_values = None;
+        self.solver_error = None;
+        self.screen = Screen::Playing;
+    }
+
+    fn handle_live_setup_start_key(&mut self, key: KeyEvent) {
+        match key.code {
+            KeyCode::Esc => self.screen = Screen::Settings,
+            KeyCode::Enter => self.start_live_game_from_setup(),
+            KeyCode::Up => self.live_setup.focus = LiveSetupFocus::Players,
+            KeyCode::Down => self.live_setup.focus = LiveSetupFocus::Hand,
+            _ => {}
+        }
+    }
+
+    fn handle_live_hand_input_key(&mut self, key: KeyEvent) {
+        match self.live_setup.focus {
+            LiveSetupFocus::Hand => self.handle_live_setup_hand_key(key),
+            LiveSetupFocus::Players => self.handle_live_setup_players_key(key),
+            LiveSetupFocus::Start => self.handle_live_setup_start_key(key),
         }
     }
 
@@ -546,6 +818,81 @@ impl App {
         }
     }
 
+    fn current_observed_move(&self) -> Option<core_game::Move> {
+        match self.observed_move.action {
+            ObservedAction::Pass => Some(core_game::Move::Pass),
+
+            ObservedAction::Play => {
+                if self.observed_move.non_wilds == 0 && self.observed_move.wilds == 0 {
+                    return None;
+                }
+
+                Some(core_game::Move::Play(core_game::Play::new(
+                    core_game::CardRank::new(self.observed_move.rank),
+                    core_game::CardCount::new(self.observed_move.non_wilds),
+                    core_game::CardCount::new(self.observed_move.wilds),
+                )))
+            }
+        }
+    }
+
+    fn handle_observed_move_key(&mut self, key: KeyEvent) {
+        if self.observed_move.editing_count {
+            match key.code {
+                KeyCode::Esc | KeyCode::Enter => self.observed_move.finish_count_editing(),
+
+                KeyCode::Up | KeyCode::Right => {
+                    self.observed_move.adjust_current_count(1);
+                    self.observed_move.edit_buffer.clear();
+                }
+
+                KeyCode::Down | KeyCode::Left => {
+                    self.observed_move.adjust_current_count(-1);
+                    self.observed_move.edit_buffer.clear();
+                }
+
+                KeyCode::Char(c) if c.is_ascii_digit() => {
+                    self.observed_move.input_count_digit(c);
+                }
+
+                KeyCode::Backspace => {
+                    self.observed_move.backspace_count_digit();
+                }
+
+                _ => {}
+            }
+
+            return;
+        }
+
+        match key.code {
+            KeyCode::Up => self.observed_move.move_focus_up(),
+            KeyCode::Down => self.observed_move.move_focus_down(),
+            KeyCode::Left => self.observed_move.move_left_right(-1),
+            KeyCode::Right => self.observed_move.move_left_right(1),
+
+            KeyCode::Enter => match self.observed_move.focus {
+                ObservedMoveFocus::Rank
+                | ObservedMoveFocus::NonWilds
+                | ObservedMoveFocus::Wilds => {
+                    self.observed_move.start_count_editing();
+                }
+
+                ObservedMoveFocus::Submit => {
+                    if let Some(player_move) = self.current_observed_move() {
+                        self.apply_core_move(player_move);
+                        self.observed_move.reset_for_next_move();
+                    }
+                }
+
+                ObservedMoveFocus::Action => {}
+
+                _ => {}
+            },
+            _ => {}
+        }
+    }
+
     fn handle_playing_key(&mut self, key: KeyEvent) {
         let Some(session) = &self.session else {
             return;
@@ -553,23 +900,31 @@ impl App {
 
         let ui_player_id = core_game::PlayerID::new(session.ui_player_number);
 
-        if session.game_state.current_player_number != ui_player_id {
+        if session.current_player_number() != ui_player_id {
+            if session.mode == GameMode::PlayLive {
+                self.handle_observed_move_key(key);
+            }
+
             return;
         }
 
         match key.code {
             KeyCode::Right => self.select_next_move(),
+
             KeyCode::Left => self.select_previous_move(),
+
             KeyCode::Tab => {
                 if self.can_pass() {
                     self.apply_core_move(core_game::Move::Pass);
                 }
             }
+
             KeyCode::Enter => {
                 if let Some(player_move) = self.current_selected_core_move() {
                     self.apply_core_move(player_move);
                 }
             }
+
             _ => {}
         }
     }
@@ -577,7 +932,11 @@ impl App {
     fn start_from_settings(&mut self) {
         match self.settings.mode {
             GameMode::PlayComputers => self.start_new_game(),
-            GameMode::PlayLive => self.screen = Screen::LiveHandInput,
+            GameMode::PlayLive => {
+                self.live_setup.reset_from_settings(&self.settings);
+                self.solver_error = None;
+                self.screen = Screen::LiveHandInput;
+            }
         }
     }
 
@@ -598,7 +957,7 @@ impl App {
 
         self.session = Some(GameSession {
             mode: self.settings.mode,
-            game_state,
+            state: SessionState::Full(game_state),
             trick_history: Vec::new(),
             player_names: self.settings.player_names.clone(),
             ui_player_number: 0,
@@ -636,28 +995,48 @@ impl App {
             return;
         };
 
+        let current_player = session.current_player_number();
         let ui_player_id = core_game::PlayerID::new(session.ui_player_number);
-        let current_player = session.game_state.current_player_number;
 
-        let purpose = if session.mode == GameMode::PlayComputers && current_player != ui_player_id {
-            SolverPurpose::AiMove
-        } else if current_player == ui_player_id && self.current_action_values.is_none() {
-            SolverPurpose::Suggestion
-        } else {
-            return;
+        let purpose = match session.mode {
+            GameMode::PlayComputers => {
+                if current_player == ui_player_id {
+                    if self.current_action_values.is_some() {
+                        return;
+                    }
+
+                    SolverPurpose::Suggestion
+                } else {
+                    SolverPurpose::AiMove
+                }
+            }
+
+            GameMode::PlayLive => {
+                if current_player != ui_player_id || self.current_action_values.is_some() {
+                    return;
+                }
+
+                SolverPurpose::Suggestion
+            }
         };
 
-        let incomplete_information_state = core_game::create_incomplete_information_game_state(
-            &session.game_state,
-            current_player,
-        );
+        let perspective_player = match purpose {
+            SolverPurpose::Suggestion => ui_player_id,
+            SolverPurpose::AiMove => current_player,
+        };
+
+        let incomplete_information_state = session.incomplete_state_for_solver(perspective_player);
 
         let config = self.settings.solver.to_search_config();
+        let heuristic = self.settings.solver.heuristic;
         let seed = self.settings.solver.random_seed;
 
-        let request_id =
-            self.solver_client
-                .request_action_values(incomplete_information_state, config, seed);
+        let request_id = self.solver_client.request_action_values(
+            incomplete_information_state,
+            config,
+            heuristic,
+            seed,
+        );
 
         self.pending_solver_request = Some(PendingSolverRequest {
             request_id,
@@ -721,10 +1100,22 @@ impl App {
         };
 
         let ui_player_id = core_game::PlayerID::new(session.ui_player_number);
-        let player_hand = &session.game_state.player_hands[ui_player_id];
 
-        let mut available_moves =
-            core_game::get_available_moves(player_hand, &session.game_state.trick.top_set);
+        let mut available_moves = match &session.state {
+            SessionState::Full(state) => {
+                let player_hand = &state.player_hands[ui_player_id];
+                core_game::get_available_moves(player_hand, &state.trick.top_set)
+            }
+
+            SessionState::Live(state) => {
+                if state.current_player_number != state.perspective_player_number {
+                    return Vec::new();
+                }
+
+                core_game::get_available_moves(&state.player_hand, &state.trick.top_set)
+            }
+        };
+
         available_moves.reverse();
 
         available_moves
@@ -778,7 +1169,14 @@ impl App {
             return false;
         };
 
-        session.game_state.trick.top_set.is_some()
+        match &session.state {
+            SessionState::Full(state) => state.trick.top_set.is_some(),
+
+            SessionState::Live(state) => {
+                state.current_player_number == state.perspective_player_number
+                    && state.trick.top_set.is_some()
+            }
+        }
     }
 
     fn apply_core_move(&mut self, player_move: core_game::Move) {
@@ -786,18 +1184,30 @@ impl App {
             return;
         };
 
-        let current_player = session.game_state.current_player_number;
+        let current_player = session.current_player_number();
         let current_player_name = session.player_names[current_player.get()].clone();
-
         let history_move = player_move;
 
-        let round_finished = match core_game::update_full_information_game_state(
-            &mut session.game_state,
-            player_move,
-        ) {
+        let update_result = match &mut session.state {
+            SessionState::Full(state) => {
+                core_game::update_full_information_game_state(state, player_move)
+                    .map_err(|error| format!("{:?}", error))
+            }
+
+            SessionState::Live(state) => {
+                if let Err(error) = validate_incomplete_move_is_possible(state, player_move) {
+                    Err(error)
+                } else {
+                    core_game::update_incomplete_information_game_state(state, player_move)
+                        .map_err(|error| format!("{:?}", error))
+                }
+            }
+        };
+
+        let round_finished = match update_result {
             Ok(round_finished) => round_finished,
             Err(error) => {
-                self.solver_error = Some(format!("{:?}", error));
+                self.solver_error = Some(error);
                 return;
             }
         };
@@ -815,8 +1225,14 @@ impl App {
                     cards::TrickHistoryEntry::new(current_player_name, player_move),
                 );
             }
+
             core_game::Move::Pass => {
-                if session.game_state.trick.top_set.is_none() {
+                let trick_is_empty = match &session.state {
+                    SessionState::Full(state) => state.trick.top_set.is_none(),
+                    SessionState::Live(state) => state.trick.top_set.is_none(),
+                };
+
+                if trick_is_empty {
                     session.trick_history.clear();
                 }
             }
@@ -851,5 +1267,181 @@ fn yes_no(value: bool) -> &'static str {
         "Yes"
     } else {
         "No"
+    }
+}
+
+fn create_initial_live_incomplete_state(
+    settings: &GameSettings,
+    player_hand: core_game::PlayerHand,
+    hand_sizes: [usize; monte_cardo_core::consts::MAX_PLAYERS],
+    perspective_player_number: core_game::PlayerID,
+    starting_player_number: core_game::PlayerID,
+) -> Result<core_game::IncompleteInformationGameState, String> {
+    let number_of_players = settings.number_of_players;
+
+    if number_of_players < 2 || number_of_players > monte_cardo_core::consts::MAX_PLAYERS {
+        return Err(format!("Invalid number of players: {}", number_of_players));
+    }
+
+    if perspective_player_number.get() >= number_of_players {
+        return Err("Perspective player is outside the active player range.".to_string());
+    }
+
+    if starting_player_number.get() >= number_of_players {
+        return Err("Starting player is outside the active player range.".to_string());
+    }
+
+    let total_deck_cards: usize = settings.deck.iter().sum();
+
+    let mut player_hand_size = 0usize;
+    let mut opponent_cards = core_game::PlayerHand::empty();
+
+    for rank in core_game::CardRank::all() {
+        let deck_count = settings.deck[rank.get()];
+        let player_count = player_hand[rank].get();
+
+        if player_count > deck_count {
+            return Err(format!(
+                "Player has {} cards of rank {}, but the deck only has {}.",
+                player_count,
+                rank.get(),
+                deck_count,
+            ));
+        }
+
+        player_hand_size += player_count;
+        opponent_cards[rank] = core_game::CardCount::new(deck_count - player_count);
+    }
+
+    if hand_sizes[perspective_player_number.get()] != player_hand_size {
+        return Err(format!(
+            "Your explicit hand size is {}, but your entered hand contains {} cards.",
+            hand_sizes[perspective_player_number.get()],
+            player_hand_size,
+        ));
+    }
+
+    let total_hand_sizes: usize = hand_sizes.iter().take(number_of_players).copied().sum();
+
+    if total_hand_sizes != total_deck_cards {
+        return Err(format!(
+            "The active hand sizes sum to {}, but the deck contains {} cards.",
+            total_hand_sizes, total_deck_cards,
+        ));
+    }
+
+    let opponent_hand_sizes: usize = hand_sizes
+        .iter()
+        .take(number_of_players)
+        .enumerate()
+        .filter(|(player_index, _)| *player_index != perspective_player_number.get())
+        .map(|(_, hand_size)| *hand_size)
+        .sum();
+
+    let opponent_card_count: usize = core_game::CardRank::all()
+        .map(|rank| opponent_cards[rank].get())
+        .sum();
+
+    if opponent_hand_sizes != opponent_card_count {
+        return Err(format!(
+            "Opponent hand sizes sum to {}, but unknown opponent cards sum to {}.",
+            opponent_hand_sizes, opponent_card_count,
+        ));
+    }
+
+    let mut core_hand_sizes = core_game::HandSizes::empty();
+
+    for player_id in core_game::PlayerID::all_player_ids(number_of_players) {
+        core_hand_sizes.add_cards(
+            player_id,
+            core_game::CardCount::new(hand_sizes[player_id.get()]),
+        );
+    }
+
+    let mut trick = core_game::Trick::new();
+
+    let mut has_passed = [true; monte_cardo_core::consts::MAX_PLAYERS];
+    for player_id in core_game::PlayerID::all_player_ids(number_of_players) {
+        has_passed[player_id.get()] = false;
+    }
+    trick.has_passed = core_game::PlayerIndexed::new(has_passed);
+
+    Ok(core_game::IncompleteInformationGameState {
+        current_player_number: starting_player_number,
+        perspective_player_number,
+        number_of_players,
+        player_hand,
+        opponent_cards,
+        player_placements: core_game::PlayerPlacements::new(),
+        hand_sizes: core_hand_sizes,
+        trick,
+    })
+}
+
+fn validate_incomplete_move_is_possible(
+    state: &core_game::IncompleteInformationGameState,
+    player_move: core_game::Move,
+) -> Result<(), String> {
+    match player_move {
+        core_game::Move::Pass => {
+            if state.trick.top_set.is_none() {
+                return Err("Cannot pass on an empty trick.".to_string());
+            }
+
+            Ok(())
+        }
+
+        core_game::Move::Play(play) => {
+            let total_count = play.total_count().get();
+
+            if total_count == 0 {
+                return Err("Cannot play zero cards.".to_string());
+            }
+
+            let current_hand_size = state.hand_sizes[state.current_player_number];
+
+            if total_count > current_hand_size {
+                return Err(format!(
+                    "Player {} only has {} cards, but tried to play {}.",
+                    state.current_player_number.get() + 1,
+                    current_hand_size,
+                    total_count,
+                ));
+            }
+
+            let available_hand = if state.current_player_number == state.perspective_player_number {
+                &state.player_hand
+            } else {
+                &state.opponent_cards
+            };
+
+            let available_moves =
+                core_game::get_available_moves(available_hand, &state.trick.top_set);
+
+            let is_legal = available_moves
+                .iter()
+                .any(|candidate| moves_are_equal(*candidate, player_move));
+
+            if !is_legal {
+                return Err(format!(
+                    "Move {:?} is not possible from the currently known information.",
+                    player_move,
+                ));
+            }
+
+            Ok(())
+        }
+    }
+}
+
+fn moves_are_equal(a: core_game::Move, b: core_game::Move) -> bool {
+    match (a, b) {
+        (core_game::Move::Pass, core_game::Move::Pass) => true,
+
+        (core_game::Move::Play(a), core_game::Move::Play(b)) => {
+            a.rank == b.rank && a.num_wilds == b.num_wilds && a.num_non_wilds == b.num_non_wilds
+        }
+
+        _ => false,
     }
 }
