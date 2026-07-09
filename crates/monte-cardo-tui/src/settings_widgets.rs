@@ -7,6 +7,7 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Paragraph, Widget},
 };
 
+use crate::rank_count_editor::RankCountEditor;
 use crate::settings::{
     GameMode, GameSettings, PlayerPanelSelection, SettingsField, SettingsFocus, SettingsFormState,
 };
@@ -23,9 +24,6 @@ const EDITING_VALUE_BG: Color = Color::Rgb(40, 70, 40);
 const SELECTED_LABEL_FG: Color = Color::Gray;
 const START_BUTTON_FG: Color = Color::Black;
 const START_BUTTON_BG: Color = Color::Green;
-
-const DECK_LABEL_WIDTH: u16 = 7;
-const DECK_CELL_WIDTH: u16 = 5;
 
 pub struct SettingsPage<'a> {
     settings: &'a GameSettings,
@@ -103,7 +101,14 @@ impl Widget for SettingsPage<'_> {
         };
 
         ModeSelector::new(self.settings, self.form).render(mode_area, buf);
-        DeckEditor::new(self.settings, self.form).render(deck_area, buf);
+        RankCountEditor::new(
+            "Deck",
+            &self.settings.deck,
+            &self.form.deck_editor,
+            self.form.focus == SettingsFocus::Deck,
+            self.settings.inverted_ordering,
+        )
+        .render(deck_area, buf);
         PlayerNamesPanel::new(self.settings, self.form).render(player_area, buf);
 
         if rules_area.width > 0 && rules_area.height > 0 {
@@ -177,91 +182,6 @@ impl Widget for ModeSelector<'_> {
         }
     }
 }
-
-struct DeckEditor<'a> {
-    settings: &'a GameSettings,
-    form: &'a SettingsFormState,
-}
-
-impl<'a> DeckEditor<'a> {
-    fn new(settings: &'a GameSettings, form: &'a SettingsFormState) -> Self {
-        Self { settings, form }
-    }
-}
-
-impl Widget for DeckEditor<'_> {
-    fn render(self, area: Rect, buf: &mut Buffer) {
-        if area.width < 4 || area.height < 4 {
-            return;
-        }
-
-        Block::new()
-            .title(" Deck ")
-            .borders(Borders::ALL)
-            .render(area, buf);
-
-        let inner = inner_rect(area, 1, 1);
-
-        if inner.width <= DECK_LABEL_WIDTH {
-            return;
-        }
-
-        let label_style = Style::default().fg(Color::Gray);
-
-        Paragraph::new(Line::from(Span::styled(" Rank", label_style)))
-            .render(Rect::new(inner.x, inner.y, DECK_LABEL_WIDTH, 1), buf);
-
-        Paragraph::new(Line::from(Span::styled(" Count", label_style)))
-            .render(Rect::new(inner.x, inner.y + 1, DECK_LABEL_WIDTH, 1), buf);
-
-        let mut ranks: Vec<usize> = (0..consts::MAX_CARD_ORDINALITY).collect();
-
-        if self.settings.inverted_ordering {
-            let mut non_wilds: Vec<usize> = (1..consts::MAX_CARD_ORDINALITY).collect();
-            non_wilds.reverse();
-
-            ranks.clear();
-            ranks.push(0);
-            ranks.extend(non_wilds);
-        }
-
-        let available_width = inner.width - DECK_LABEL_WIDTH;
-        let max_cells = (available_width / DECK_CELL_WIDTH).max(1) as usize;
-
-        for (display_index, rank) in ranks.into_iter().take(max_cells).enumerate() {
-            let x = inner.x + DECK_LABEL_WIDTH + display_index as u16 * DECK_CELL_WIDTH;
-
-            let selected = self.form.focus == SettingsFocus::Deck && self.form.deck_rank == rank;
-
-            let rank_label = if rank == 0 {
-                "W".to_string()
-            } else {
-                rank.to_string()
-            };
-
-            Paragraph::new(Line::from(Span::raw(format!("{:^4}", rank_label))))
-                .render(Rect::new(x, inner.y, DECK_CELL_WIDTH, 1), buf);
-
-            let count_text =
-                if selected && self.form.deck_editing && !self.form.deck_edit_buffer.is_empty() {
-                    format!("{}▌", self.form.deck_edit_buffer)
-                } else if selected && self.form.deck_editing {
-                    format!("{}▌", self.settings.deck[rank])
-                } else {
-                    self.settings.deck[rank].to_string()
-                };
-
-            let count_style = editable_style(selected, selected && self.form.deck_editing);
-
-            Paragraph::new(Line::from(Span::styled(
-                format!("{:^4}", count_text),
-                count_style,
-            )))
-            .render(Rect::new(x, inner.y + 1, DECK_CELL_WIDTH, 1), buf);
-        }
-    }
-}
-
 struct PlayerNamesPanel<'a> {
     settings: &'a GameSettings,
     form: &'a SettingsFormState,
@@ -324,8 +244,35 @@ impl Widget for PlayerNamesPanel<'_> {
         Paragraph::new(Line::from(Span::styled(separator, Color::DarkGray)))
             .render(Rect::new(inner.x, inner.y + 1, inner.width, 1), buf);
 
-        for player_index in 0..self.settings.number_of_players {
-            let y = inner.y + 2 + player_index as u16;
+        if inner.height <= 2 {
+            return;
+        }
+
+        let visible_player_rows = inner.height.saturating_sub(2) as usize;
+
+        let selected_player_index = match self.form.player_selection {
+            PlayerPanelSelection::PlayerName(index) => Some(index),
+            PlayerPanelSelection::NumberOfPlayers => None,
+        };
+
+        let scroll = selected_player_index
+            .map(|index| {
+                scroll_offset_for_selected(
+                    index,
+                    visible_player_rows,
+                    self.settings.number_of_players,
+                )
+            })
+            .unwrap_or(0);
+
+        for visible_row in 0..visible_player_rows {
+            let player_index = scroll + visible_row;
+
+            if player_index >= self.settings.number_of_players {
+                break;
+            }
+
+            let y = inner.y + 2 + visible_row as u16;
             if y >= inner.y + inner.height {
                 break;
             }
@@ -359,6 +306,14 @@ impl Widget for PlayerNamesPanel<'_> {
             ]))
             .render(Rect::new(inner.x, y, inner.width, 1), buf);
         }
+
+        render_scroll_markers(
+            inner,
+            scroll,
+            visible_player_rows,
+            self.settings.number_of_players,
+            buf,
+        );
     }
 }
 
@@ -474,7 +429,7 @@ impl Widget for StartFooter<'_> {
                 SettingsFocus::Mode => {
                     "Mode: ←/→ choose button    Enter select    ↓ deck    ↑ start"
                 }
-                SettingsFocus::Deck if self.form.deck_editing => {
+                SettingsFocus::Deck if self.form.deck_editor.editing => {
                     "Deck count selected: type number or ↑/↓ adjust    Enter/Esc finish"
                 }
                 SettingsFocus::Deck => {
@@ -526,5 +481,46 @@ fn editable_style(selected: bool, editing: bool) -> Style {
             .add_modifier(Modifier::BOLD)
     } else {
         Style::default().fg(EDITABLE_VALUE_FG).bg(EDITABLE_VALUE_BG)
+    }
+}
+
+fn scroll_offset_for_selected(
+    selected_index: usize,
+    visible_rows: usize,
+    total_rows: usize,
+) -> usize {
+    if visible_rows == 0 || total_rows <= visible_rows {
+        return 0;
+    }
+
+    selected_index
+        .saturating_add(1)
+        .saturating_sub(visible_rows)
+        .min(total_rows.saturating_sub(visible_rows))
+}
+
+fn render_scroll_markers(
+    inner: Rect,
+    scroll: usize,
+    visible_rows: usize,
+    total_rows: usize,
+    buf: &mut Buffer,
+) {
+    if visible_rows == 0 || total_rows <= visible_rows || inner.width == 0 {
+        return;
+    }
+
+    let marker_x = inner.x + inner.width.saturating_sub(2);
+
+    if scroll > 0 {
+        Paragraph::new(Line::from(Span::styled("↑", Color::DarkGray)))
+            .render(Rect::new(marker_x, inner.y + 2, 1, 1), buf);
+    }
+
+    if scroll + visible_rows < total_rows {
+        Paragraph::new(Line::from(Span::styled("↓", Color::DarkGray))).render(
+            Rect::new(marker_x, inner.y + inner.height.saturating_sub(1), 1, 1),
+            buf,
+        );
     }
 }

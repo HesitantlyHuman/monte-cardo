@@ -14,6 +14,7 @@ pub trait ActionPriorHeuristic {
     ) -> RankCompressed<ActionProbabilities>;
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct SearchConfig {
     pub exploration_factor: f32,
     pub temperature: f32,
@@ -41,7 +42,7 @@ impl SearchConfig {
             puct_rollouts_per_leaf: 70,
             puct_rollout_bounds: (5, 60),
             puct_mature_node_min_visits: 64,
-            puct_node_capacity: 8_000_000,
+            puct_node_capacity: 4_000_000,
         }
     }
 
@@ -55,7 +56,7 @@ impl SearchConfig {
             puct_rollouts_per_leaf: 70,
             puct_rollout_bounds: (5, 60),
             puct_mature_node_min_visits: 64,
-            puct_node_capacity: 8_000_000,
+            puct_node_capacity: 4_000_000,
         }
     }
 }
