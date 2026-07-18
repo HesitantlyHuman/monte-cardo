@@ -1,43 +1,146 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
 
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0"
-    />
+<head>
+  <meta charset="UTF-8" />
 
-    <link data-trunk rel="rust" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <title>Monte Cardo</title>
+  <link data-trunk rel="rust" data-bin="monte-cardo-web" data-type="main" />
 
-    <style>
-      html,
-      body {
-        width: 100%;
-        height: 100%;
-        margin: 0;
-        overflow: hidden;
-        background: #101010;
+  <link data-trunk rel="rust" data-bin="solver_worker" data-type="worker" data-loader-shim />
+
+  <title>Monte Cardo</title>
+
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #000000;
+    }
+
+    #monte-cardo-stage {
+      position: fixed;
+      inset: 0;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      overflow: hidden;
+      background: #000000;
+    }
+
+    #monte-cardo-root {
+      width: 100%;
+      height: 100%;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      overflow: hidden;
+    }
+
+    #monte-cardo-root canvas {
+      display: block;
+      flex: none;
+
+      /*
+     * Do not set width: 100% or height: 100% here.
+     * The script sets the visual dimensions after Ratzilla initializes.
+     */
+      max-width: none;
+      max-height: none;
+
+      outline: none;
+      user-select: none;
+      touch-action: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="monte-cardo-stage">
+    <div id="monte-cardo-root"></div>
+  </div>
+
+  <script>
+    const stage = document.getElementById("monte-cardo-stage");
+    const root = document.getElementById("monte-cardo-root");
+
+    let canvas = null;
+
+    function fitTerminal() {
+      if (!canvas) {
+        canvas = root.querySelector("canvas");
       }
 
-      body {
-        display: grid;
-        place-items: center;
+      if (!canvas) {
+        return;
       }
 
-      pre {
-        margin: 0;
-        font-family:
-          "DejaVu Sans Mono",
-          "Liberation Mono",
-          monospace;
-        font-size: 14px;
-        line-height: 1;
-      }
-    </style>
-  </head>
+      /*
+       * width and height are the fixed backing dimensions supplied by Rust.
+       * Do not use clientWidth/clientHeight here because those become the
+       * visually scaled dimensions after this function runs.
+       */
+      const terminalWidth = canvas.width;
+      const terminalHeight = canvas.height;
 
-  <body></body>
+      if (terminalWidth === 0 || terminalHeight === 0) {
+        return;
+      }
+
+      const bounds = stage.getBoundingClientRect();
+
+      const scale = Math.min(
+        bounds.width / terminalWidth,
+        bounds.height / terminalHeight,
+      );
+
+      const displayedWidth = Math.floor(terminalWidth * scale);
+      const displayedHeight = Math.floor(terminalHeight * scale);
+
+      canvas.style.width = `${displayedWidth}px`;
+      canvas.style.height = `${displayedHeight}px`;
+    }
+
+    const resizeObserver = new ResizeObserver(() => {
+      fitTerminal();
+    });
+
+    resizeObserver.observe(stage);
+
+    const mutationObserver = new MutationObserver(() => {
+      canvas = root.querySelector("canvas");
+
+      if (canvas) {
+        /*
+         * Wait until the current initialization call finishes. This ensures
+         * Ratzilla measures the canvas before we apply visual CSS scaling.
+         */
+        requestAnimationFrame(fitTerminal);
+      }
+    });
+
+    mutationObserver.observe(root, {
+      childList: true,
+    });
+
+    requestAnimationFrame(fitTerminal);
+  </script>
+</body>
+
 </html>
