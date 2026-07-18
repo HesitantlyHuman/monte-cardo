@@ -1,0 +1,13 @@
+[package]
+name = "monte-cardo-web"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+monte-cardo-tui = { path = "../monte-cardo-tui" }
+ratatui = { version = "0.30.1", default-features = false, features = [
+    "all-widgets",
+    "layout-cache",
+] }
+ratzilla = "0.3.1"
+console_error_panic_hook = "0.1"

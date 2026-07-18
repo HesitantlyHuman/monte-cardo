@@ -5,6 +5,7 @@ members = [
     "crates/monte-cardo-cli",
     "crates/monte-cardo-tui",
     "crates/monte-cardo-python",
+    "crates/monte-cardo-web",
 ]
 
 [workspace.package]

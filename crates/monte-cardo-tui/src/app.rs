@@ -7,23 +7,23 @@ use crate::live_widgets::{
 use crate::main_menu_widgets::MainMenu;
 use crate::rank_count_editor::fixed_max_counts;
 use crate::settings_widgets::SettingsPage;
+use crate::AppKey;
 use crate::{
     cards,
     settings::{
-        adjust_deck_count, adjust_number_of_players, set_deck_count_from_text,
-        set_number_of_players_from_text, GameMode, GameSettings, PlayerPanelSelection,
-        SettingsField, SettingsFocus, SettingsFormState,
+        adjust_number_of_players, set_number_of_players_from_text, GameMode, GameSettings,
+        PlayerPanelSelection, SettingsFocus, SettingsFormState,
     },
     solver_worker::{SolverClient, SolverPurpose, SolverResponse},
     view_model,
 };
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{Event, KeyModifiers};
 use monte_cardo_core::{eval, game as core_game};
 use ratatui::{
     layout::{Alignment, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, BorderType, Borders, Clear, Paragraph, Widget, Wrap},
+    widgets::{Block, BorderType, Borders, Clear, Paragraph, Widget},
     Frame,
 };
 
@@ -111,9 +111,13 @@ pub struct App {
     observed_move: ObservedMoveInputState,
     session: Option<GameSession>,
 
+    #[cfg(not(target_arch = "wasm32"))]
     solver_client: SolverClient,
+    #[cfg(not(target_arch = "wasm32"))]
     pending_solver_request: Option<PendingSolverRequest>,
+    #[cfg(not(target_arch = "wasm32"))]
     current_action_values: Option<Vec<(core_game::Move, f32)>>,
+    #[cfg(not(target_arch = "wasm32"))]
     solver_error: Option<String>,
 
     should_quit: bool,
@@ -130,9 +134,13 @@ impl App {
             observed_move: ObservedMoveInputState::new(),
             session: None,
 
+            #[cfg(not(target_arch = "wasm32"))]
             solver_client: SolverClient::new(),
+            #[cfg(not(target_arch = "wasm32"))]
             pending_solver_request: None,
+            #[cfg(not(target_arch = "wasm32"))]
             current_action_values: None,
+            #[cfg(not(target_arch = "wasm32"))]
             solver_error: None,
 
             should_quit: false,
@@ -144,7 +152,7 @@ impl App {
     }
 
     pub fn render(&self, frame: &mut Frame) {
-        let area = frame.size();
+        let area = frame.area();
 
         match self.screen {
             Screen::MainMenu => self.render_main_menu(frame, area),
@@ -156,24 +164,22 @@ impl App {
     }
 
     pub fn tick(&mut self) {
+        #[cfg(not(target_arch = "wasm32"))]
         for response in self.solver_client.drain_responses() {
             self.handle_solver_response(response);
         }
 
+        #[cfg(not(target_arch = "wasm32"))]
         self.ensure_solver_request();
     }
 
-    pub fn handle_event(&mut self, event: Event) -> io::Result<()> {
-        let Event::Key(key) = event else {
-            return Ok(());
-        };
-
-        if key.modifiers == KeyModifiers::CONTROL && key.code == KeyCode::Char('c') {
+    pub fn handle_event(&mut self, key: AppKey) -> io::Result<()> {
+        if key == AppKey::ControlC {
             self.should_quit = true;
             return Ok(());
         }
 
-        if key.modifiers == KeyModifiers::CONTROL && key.code == KeyCode::Char('q') {
+        if key == AppKey::ControlQ {
             match self.screen {
                 Screen::Playing | Screen::Settings | Screen::LiveHandInput | Screen::GameOver => {
                     self.return_to_main_menu();
@@ -282,6 +288,7 @@ impl App {
             }
         }
 
+        #[cfg(not(target_arch = "wasm32"))]
         if let Some(message) = self.solver_status_message() {
             let overlay = Rect::new(area.x + 2, area.y + 1, area.width.saturating_sub(4), 1);
             Clear.render(overlay, frame.buffer_mut());
@@ -354,19 +361,19 @@ impl App {
         frame.render_widget(widget, centered_rect(area, 48, 7));
     }
 
-    fn handle_main_menu_key(&mut self, key: KeyEvent) {
-        match key.code {
-            KeyCode::Up => {
+    fn handle_main_menu_key(&mut self, key: AppKey) {
+        match key {
+            AppKey::Up => {
                 if self.main_menu_index > 0 {
                     self.main_menu_index -= 1;
                 }
             }
-            KeyCode::Down => {
+            AppKey::Down => {
                 if self.main_menu_index < 1 {
                     self.main_menu_index += 1;
                 }
             }
-            KeyCode::Enter => {
+            AppKey::Enter => {
                 self.settings.mode = if self.main_menu_index == 0 {
                     GameMode::PlayComputers
                 } else {
@@ -380,7 +387,7 @@ impl App {
         }
     }
 
-    fn handle_settings_key(&mut self, key: KeyEvent) {
+    fn handle_settings_key(&mut self, key: AppKey) {
         match self.settings_form.focus {
             SettingsFocus::Mode => self.handle_mode_settings_key(key),
             SettingsFocus::Deck => self.handle_deck_settings_key(key),
@@ -390,40 +397,40 @@ impl App {
         }
     }
 
-    fn handle_mode_settings_key(&mut self, key: KeyEvent) {
-        match key.code {
-            KeyCode::Esc => self.screen = Screen::MainMenu,
-            KeyCode::Left => self.settings_form.move_mode_cursor(-1),
-            KeyCode::Right => self.settings_form.move_mode_cursor(1),
-            KeyCode::Enter => {
+    fn handle_mode_settings_key(&mut self, key: AppKey) {
+        match key {
+            AppKey::Esc => self.screen = Screen::MainMenu,
+            AppKey::Left => self.settings_form.move_mode_cursor(-1),
+            AppKey::Right => self.settings_form.move_mode_cursor(1),
+            AppKey::Enter => {
                 self.settings.mode = self.settings_form.mode_cursor;
             }
-            KeyCode::Down => self.settings_form.focus_deck_start(),
-            KeyCode::Up => self.settings_form.focus_start(),
+            AppKey::Down => self.settings_form.focus_deck_start(),
+            AppKey::Up => self.settings_form.focus_start(),
             _ => {}
         }
     }
 
-    fn handle_deck_settings_key(&mut self, key: KeyEvent) {
+    fn handle_deck_settings_key(&mut self, key: AppKey) {
         let max_counts = fixed_max_counts(99);
 
         if self.settings_form.deck_editor.editing {
-            match key.code {
-                KeyCode::Esc | KeyCode::Enter => {
+            match key {
+                AppKey::Esc | AppKey::Enter => {
                     self.settings_form.deck_editor.finish_editing();
                 }
 
-                KeyCode::Left => {
+                AppKey::Left => {
                     self.settings_form.deck_editor.finish_editing();
                     self.settings_form.deck_editor.move_rank(-1);
                 }
 
-                KeyCode::Right => {
+                AppKey::Right => {
                     self.settings_form.deck_editor.finish_editing();
                     self.settings_form.deck_editor.move_rank(1);
                 }
 
-                KeyCode::Up => {
+                AppKey::Up => {
                     self.settings_form.deck_editor.adjust_count(
                         &mut self.settings.deck,
                         &max_counts,
@@ -432,7 +439,7 @@ impl App {
                     self.settings_form.deck_editor.edit_buffer.clear();
                 }
 
-                KeyCode::Down => {
+                AppKey::Down => {
                     self.settings_form.deck_editor.adjust_count(
                         &mut self.settings.deck,
                         &max_counts,
@@ -441,7 +448,7 @@ impl App {
                     self.settings_form.deck_editor.edit_buffer.clear();
                 }
 
-                KeyCode::Char(c) if c.is_ascii_digit() => {
+                AppKey::Char(c) if c.is_ascii_digit() => {
                     self.settings_form.deck_editor.input_digit(
                         &mut self.settings.deck,
                         &max_counts,
@@ -449,7 +456,7 @@ impl App {
                     );
                 }
 
-                KeyCode::Backspace => {
+                AppKey::Backspace => {
                     self.settings_form
                         .deck_editor
                         .backspace_digit(&mut self.settings.deck, &max_counts);
@@ -461,24 +468,24 @@ impl App {
             return;
         }
 
-        match key.code {
-            KeyCode::Esc => self.screen = Screen::MainMenu,
-            KeyCode::Left => self.settings_form.deck_editor.move_rank(-1),
-            KeyCode::Right => self.settings_form.deck_editor.move_rank(1),
-            KeyCode::Enter => self.settings_form.deck_editor.start_editing(),
-            KeyCode::Up => self.settings_form.focus_mode(),
-            KeyCode::Down => self.settings_form.focus_players(),
+        match key {
+            AppKey::Esc => self.screen = Screen::MainMenu,
+            AppKey::Left => self.settings_form.deck_editor.move_rank(-1),
+            AppKey::Right => self.settings_form.deck_editor.move_rank(1),
+            AppKey::Enter => self.settings_form.deck_editor.start_editing(),
+            AppKey::Up => self.settings_form.focus_mode(),
+            AppKey::Down => self.settings_form.focus_players(),
             _ => {}
         }
     }
 
-    fn handle_player_settings_key(&mut self, key: KeyEvent) {
+    fn handle_player_settings_key(&mut self, key: AppKey) {
         if self.settings_form.player_name_editing {
-            match key.code {
-                KeyCode::Esc | KeyCode::Enter => {
+            match key {
+                AppKey::Esc | AppKey::Enter => {
                     self.settings_form.finish_player_editing();
                 }
-                KeyCode::Char(c) if !c.is_control() => {
+                AppKey::Char(c) if !c.is_control() => {
                     if let PlayerPanelSelection::PlayerName(index) =
                         self.settings_form.player_selection
                     {
@@ -489,7 +496,7 @@ impl App {
                         }
                     }
                 }
-                KeyCode::Backspace => {
+                AppKey::Backspace => {
                     if let PlayerPanelSelection::PlayerName(index) =
                         self.settings_form.player_selection
                     {
@@ -505,21 +512,21 @@ impl App {
         }
 
         if self.settings_form.player_count_editing {
-            match key.code {
-                KeyCode::Esc | KeyCode::Enter => {
+            match key {
+                AppKey::Esc | AppKey::Enter => {
                     self.settings_form.finish_player_editing();
                 }
-                KeyCode::Up | KeyCode::Right => {
+                AppKey::Up | AppKey::Right => {
                     adjust_number_of_players(&mut self.settings, 1);
                     self.settings_form.player_count_edit_buffer.clear();
                     self.settings_form.clamp_to_settings(&self.settings);
                 }
-                KeyCode::Down | KeyCode::Left => {
+                AppKey::Down | AppKey::Left => {
                     adjust_number_of_players(&mut self.settings, -1);
                     self.settings_form.player_count_edit_buffer.clear();
                     self.settings_form.clamp_to_settings(&self.settings);
                 }
-                KeyCode::Char(c) if c.is_ascii_digit() => {
+                AppKey::Char(c) if c.is_ascii_digit() => {
                     self.settings_form.player_count_edit_buffer.push(c);
                     set_number_of_players_from_text(
                         &mut self.settings,
@@ -527,7 +534,7 @@ impl App {
                     );
                     self.settings_form.clamp_to_settings(&self.settings);
                 }
-                KeyCode::Backspace => {
+                AppKey::Backspace => {
                     self.settings_form.player_count_edit_buffer.pop();
                     set_number_of_players_from_text(
                         &mut self.settings,
@@ -541,16 +548,16 @@ impl App {
             return;
         }
 
-        match key.code {
-            KeyCode::Esc => self.screen = Screen::MainMenu,
-            KeyCode::Left | KeyCode::Right => self.settings_form.focus_rules(),
-            KeyCode::Enter => self.settings_form.start_player_editing(),
-            KeyCode::Up => {
+        match key {
+            AppKey::Esc => self.screen = Screen::MainMenu,
+            AppKey::Left | AppKey::Right => self.settings_form.focus_rules(),
+            AppKey::Enter => self.settings_form.start_player_editing(),
+            AppKey::Up => {
                 if !self.settings_form.move_player_selection_up() {
                     self.settings_form.focus_deck_start();
                 }
             }
-            KeyCode::Down => {
+            AppKey::Down => {
                 if !self
                     .settings_form
                     .move_player_selection_down(&self.settings)
@@ -562,35 +569,35 @@ impl App {
         }
     }
 
-    fn handle_rules_settings_key(&mut self, key: KeyEvent) {
+    fn handle_rules_settings_key(&mut self, key: AppKey) {
         if self.settings_form.rules_editing {
             let Some(field) = self.settings_form.selected_rule_field(&self.settings) else {
                 self.settings_form.finish_rule_editing();
                 return;
             };
 
-            match key.code {
-                KeyCode::Esc | KeyCode::Enter => {
+            match key {
+                AppKey::Esc | AppKey::Enter => {
                     self.settings_form.finish_rule_editing();
                 }
-                KeyCode::Up | KeyCode::Right => {
+                AppKey::Up | AppKey::Right => {
                     field.adjust(&mut self.settings, 1);
                     self.settings_form.rules_edit_buffer.clear();
                     self.settings_form.clamp_to_settings(&self.settings);
                 }
-                KeyCode::Down | KeyCode::Left => {
+                AppKey::Down | AppKey::Left => {
                     field.adjust(&mut self.settings, -1);
                     self.settings_form.rules_edit_buffer.clear();
                     self.settings_form.clamp_to_settings(&self.settings);
                 }
-                KeyCode::Char(c)
+                AppKey::Char(c)
                     if c.is_ascii_digit() || (field.allows_decimal_text() && c == '.') =>
                 {
                     self.settings_form.rules_edit_buffer.push(c);
                     field.set_from_text(&mut self.settings, &self.settings_form.rules_edit_buffer);
                     self.settings_form.clamp_to_settings(&self.settings);
                 }
-                KeyCode::Backspace => {
+                AppKey::Backspace => {
                     self.settings_form.rules_edit_buffer.pop();
                     field.set_from_text(&mut self.settings, &self.settings_form.rules_edit_buffer);
                     self.settings_form.clamp_to_settings(&self.settings);
@@ -601,19 +608,19 @@ impl App {
             return;
         }
 
-        match key.code {
-            KeyCode::Esc => self.screen = Screen::MainMenu,
-            KeyCode::Left | KeyCode::Right => self.settings_form.focus_players(),
-            KeyCode::Enter | KeyCode::Char(' ') => {
+        match key {
+            AppKey::Esc => self.screen = Screen::MainMenu,
+            AppKey::Left | AppKey::Right => self.settings_form.focus_players(),
+            AppKey::Enter | AppKey::Char(' ') => {
                 self.settings_form.start_rule_editing(&mut self.settings);
                 self.settings_form.clamp_to_settings(&self.settings);
             }
-            KeyCode::Up => {
+            AppKey::Up => {
                 if !self.settings_form.move_rules_up() {
                     self.settings_form.focus_deck_start();
                 }
             }
-            KeyCode::Down => {
+            AppKey::Down => {
                 if !self.settings_form.move_rules_down(&self.settings) {
                     self.settings_form.focus_start();
                 }
@@ -622,49 +629,49 @@ impl App {
         }
     }
 
-    fn handle_start_settings_key(&mut self, key: KeyEvent) {
-        match key.code {
-            KeyCode::Esc => self.screen = Screen::MainMenu,
-            KeyCode::Enter => self.start_from_settings(),
-            KeyCode::Up => self.settings_form.focus_players(),
-            KeyCode::Down => self.settings_form.focus_mode(),
-            KeyCode::Left | KeyCode::Right => {}
+    fn handle_start_settings_key(&mut self, key: AppKey) {
+        match key {
+            AppKey::Esc => self.screen = Screen::MainMenu,
+            AppKey::Enter => self.start_from_settings(),
+            AppKey::Up => self.settings_form.focus_players(),
+            AppKey::Down => self.settings_form.focus_mode(),
+            AppKey::Left | AppKey::Right => {}
             _ => {}
         }
     }
 
-    fn handle_live_setup_hand_key(&mut self, key: KeyEvent) {
+    fn handle_live_setup_hand_key(&mut self, key: AppKey) {
         if self.live_setup.hand_editor.editing {
-            match key.code {
-                KeyCode::Esc | KeyCode::Enter => {
+            match key {
+                AppKey::Esc | AppKey::Enter => {
                     self.live_setup.finish_hand_editing();
                 }
 
-                KeyCode::Left => {
+                AppKey::Left => {
                     self.live_setup.finish_hand_editing();
                     self.live_setup.move_hand_rank(-1);
                 }
 
-                KeyCode::Right => {
+                AppKey::Right => {
                     self.live_setup.finish_hand_editing();
                     self.live_setup.move_hand_rank(1);
                 }
 
-                KeyCode::Up => {
+                AppKey::Up => {
                     self.live_setup.adjust_hand_count(&self.settings, 1);
                     self.live_setup.hand_editor.edit_buffer.clear();
                 }
 
-                KeyCode::Down => {
+                AppKey::Down => {
                     self.live_setup.adjust_hand_count(&self.settings, -1);
                     self.live_setup.hand_editor.edit_buffer.clear();
                 }
 
-                KeyCode::Char(c) if c.is_ascii_digit() => {
+                AppKey::Char(c) if c.is_ascii_digit() => {
                     self.live_setup.input_hand_digit(&self.settings, c);
                 }
 
-                KeyCode::Backspace => {
+                AppKey::Backspace => {
                     self.live_setup.backspace_hand_digit(&self.settings);
                 }
 
@@ -674,39 +681,39 @@ impl App {
             return;
         }
 
-        match key.code {
-            KeyCode::Esc => self.screen = Screen::Settings,
-            KeyCode::Left => self.live_setup.move_hand_rank(-1),
-            KeyCode::Right => self.live_setup.move_hand_rank(1),
-            KeyCode::Enter => self.live_setup.start_hand_editing(),
-            KeyCode::Down => self.live_setup.focus = LiveSetupFocus::Players,
-            KeyCode::Up => self.live_setup.focus = LiveSetupFocus::Start,
+        match key {
+            AppKey::Esc => self.screen = Screen::Settings,
+            AppKey::Left => self.live_setup.move_hand_rank(-1),
+            AppKey::Right => self.live_setup.move_hand_rank(1),
+            AppKey::Enter => self.live_setup.start_hand_editing(),
+            AppKey::Down => self.live_setup.focus = LiveSetupFocus::Players,
+            AppKey::Up => self.live_setup.focus = LiveSetupFocus::Start,
             _ => {}
         }
     }
 
-    fn handle_live_setup_players_key(&mut self, key: KeyEvent) {
+    fn handle_live_setup_players_key(&mut self, key: AppKey) {
         if self.live_setup.hand_size_editing {
-            match key.code {
-                KeyCode::Esc | KeyCode::Enter => {
+            match key {
+                AppKey::Esc | AppKey::Enter => {
                     self.live_setup.finish_hand_size_editing();
                 }
 
-                KeyCode::Up | KeyCode::Right => {
+                AppKey::Up | AppKey::Right => {
                     self.live_setup.adjust_hand_size(&self.settings, 1);
                     self.live_setup.hand_size_edit_buffer.clear();
                 }
 
-                KeyCode::Down | KeyCode::Left => {
+                AppKey::Down | AppKey::Left => {
                     self.live_setup.adjust_hand_size(&self.settings, -1);
                     self.live_setup.hand_size_edit_buffer.clear();
                 }
 
-                KeyCode::Char(c) if c.is_ascii_digit() => {
+                AppKey::Char(c) if c.is_ascii_digit() => {
                     self.live_setup.input_hand_size_digit(&self.settings, c);
                 }
 
-                KeyCode::Backspace => {
+                AppKey::Backspace => {
                     self.live_setup.backspace_hand_size_digit();
                 }
 
@@ -716,13 +723,13 @@ impl App {
             return;
         }
 
-        match key.code {
-            KeyCode::Esc => self.screen = Screen::Settings,
+        match key {
+            AppKey::Esc => self.screen = Screen::Settings,
 
-            KeyCode::Left => self.live_setup.move_player_column(-1),
-            KeyCode::Right => self.live_setup.move_player_column(1),
+            AppKey::Left => self.live_setup.move_player_column(-1),
+            AppKey::Right => self.live_setup.move_player_column(1),
 
-            KeyCode::Up => {
+            AppKey::Up => {
                 if self.live_setup.hand_size_player == 0 {
                     self.live_setup.focus = LiveSetupFocus::Hand;
                 } else if self.live_setup.hand_size_player == 1
@@ -734,7 +741,7 @@ impl App {
                 }
             }
 
-            KeyCode::Down => {
+            AppKey::Down => {
                 if self.live_setup.hand_size_player + 1 >= self.settings.number_of_players {
                     self.live_setup.focus = LiveSetupFocus::Start;
                 } else {
@@ -742,7 +749,7 @@ impl App {
                 }
             }
 
-            KeyCode::Enter => match self.live_setup.player_column {
+            AppKey::Enter => match self.live_setup.player_column {
                 LivePlayerColumn::StartingPlayer => {
                     self.live_setup.select_current_player_as_starting_player();
                 }
@@ -792,17 +799,17 @@ impl App {
         self.screen = Screen::Playing;
     }
 
-    fn handle_live_setup_start_key(&mut self, key: KeyEvent) {
-        match key.code {
-            KeyCode::Esc => self.screen = Screen::Settings,
-            KeyCode::Enter => self.start_live_game_from_setup(),
-            KeyCode::Up => self.live_setup.focus = LiveSetupFocus::Players,
-            KeyCode::Down => self.live_setup.focus = LiveSetupFocus::Hand,
+    fn handle_live_setup_start_key(&mut self, key: AppKey) {
+        match key {
+            AppKey::Esc => self.screen = Screen::Settings,
+            AppKey::Enter => self.start_live_game_from_setup(),
+            AppKey::Up => self.live_setup.focus = LiveSetupFocus::Players,
+            AppKey::Down => self.live_setup.focus = LiveSetupFocus::Hand,
             _ => {}
         }
     }
 
-    fn handle_live_hand_input_key(&mut self, key: KeyEvent) {
+    fn handle_live_hand_input_key(&mut self, key: AppKey) {
         match self.live_setup.focus {
             LiveSetupFocus::Hand => self.handle_live_setup_hand_key(key),
             LiveSetupFocus::Players => self.handle_live_setup_players_key(key),
@@ -810,10 +817,10 @@ impl App {
         }
     }
 
-    fn handle_game_over_key(&mut self, key: KeyEvent) {
-        match key.code {
-            KeyCode::Enter => self.start_new_game(),
-            KeyCode::Esc => self.return_to_main_menu(),
+    fn handle_game_over_key(&mut self, key: AppKey) {
+        match key {
+            AppKey::Enter => self.start_new_game(),
+            AppKey::Esc => self.return_to_main_menu(),
             _ => {}
         }
     }
@@ -836,26 +843,26 @@ impl App {
         }
     }
 
-    fn handle_observed_move_key(&mut self, key: KeyEvent) {
+    fn handle_observed_move_key(&mut self, key: AppKey) {
         if self.observed_move.editing_count {
-            match key.code {
-                KeyCode::Esc | KeyCode::Enter => self.observed_move.finish_count_editing(),
+            match key {
+                AppKey::Esc | AppKey::Enter => self.observed_move.finish_count_editing(),
 
-                KeyCode::Up | KeyCode::Right => {
+                AppKey::Up | AppKey::Right => {
                     self.observed_move.adjust_current_count(1);
                     self.observed_move.edit_buffer.clear();
                 }
 
-                KeyCode::Down | KeyCode::Left => {
+                AppKey::Down | AppKey::Left => {
                     self.observed_move.adjust_current_count(-1);
                     self.observed_move.edit_buffer.clear();
                 }
 
-                KeyCode::Char(c) if c.is_ascii_digit() => {
+                AppKey::Char(c) if c.is_ascii_digit() => {
                     self.observed_move.input_count_digit(c);
                 }
 
-                KeyCode::Backspace => {
+                AppKey::Backspace => {
                     self.observed_move.backspace_count_digit();
                 }
 
@@ -865,13 +872,13 @@ impl App {
             return;
         }
 
-        match key.code {
-            KeyCode::Up => self.observed_move.move_focus_up(),
-            KeyCode::Down => self.observed_move.move_focus_down(),
-            KeyCode::Left => self.observed_move.move_left_right(-1),
-            KeyCode::Right => self.observed_move.move_left_right(1),
+        match key {
+            AppKey::Up => self.observed_move.move_focus_up(),
+            AppKey::Down => self.observed_move.move_focus_down(),
+            AppKey::Left => self.observed_move.move_left_right(-1),
+            AppKey::Right => self.observed_move.move_left_right(1),
 
-            KeyCode::Enter => match self.observed_move.focus {
+            AppKey::Enter => match self.observed_move.focus {
                 ObservedMoveFocus::Rank
                 | ObservedMoveFocus::NonWilds
                 | ObservedMoveFocus::Wilds => {
@@ -893,7 +900,7 @@ impl App {
         }
     }
 
-    fn handle_playing_key(&mut self, key: KeyEvent) {
+    fn handle_playing_key(&mut self, key: AppKey) {
         let Some(session) = &self.session else {
             return;
         };
@@ -908,18 +915,18 @@ impl App {
             return;
         }
 
-        match key.code {
-            KeyCode::Right => self.select_next_move(),
+        match key {
+            AppKey::Right => self.select_next_move(),
 
-            KeyCode::Left => self.select_previous_move(),
+            AppKey::Left => self.select_previous_move(),
 
-            KeyCode::Tab => {
+            AppKey::Tab => {
                 if self.can_pass() {
                     self.apply_core_move(core_game::Move::Pass);
                 }
             }
 
-            KeyCode::Enter => {
+            AppKey::Enter => {
                 if let Some(player_move) = self.current_selected_core_move() {
                     self.apply_core_move(player_move);
                 }
@@ -978,6 +985,7 @@ impl App {
         self.solver_error = None;
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn ensure_solver_request(&mut self) {
         if self.screen != Screen::Playing {
             return;
@@ -1044,6 +1052,7 @@ impl App {
         });
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn handle_solver_response(&mut self, response: SolverResponse) {
         let SolverResponse::ActionValues { request_id, values } = response;
 
@@ -1079,6 +1088,7 @@ impl App {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn solver_status_message(&self) -> Option<String> {
         if let Some(error) = &self.solver_error {
             return Some(format!("Solver error: {}", error));

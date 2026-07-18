@@ -4,14 +4,14 @@ use rand_distr::Distribution;
 
 use crate::game;
 
-use crate::eval::actions::{ActionMask, MoveID, MoveIDError};
-use crate::eval::config::{ActionPriorHeuristic, SearchConfig, SearchContext};
-use crate::eval::evaluate::{full_tree_evaluation, value_to_probabilities, EvaluationError};
-use crate::eval::normalize::{
+use crate::eval::ActionProbabilities;
+use crate::eval::{full_tree_evaluation, value_to_probabilities, EvaluationError};
+use crate::eval::{
     normalize_incomplete_information_state, NormalizedIncompleteInformation, RankCompressed,
     RankCompressible,
 };
-use crate::eval::puct::ActionProbabilities;
+use crate::eval::{ActionMask, MoveID, MoveIDError};
+use crate::eval::{ActionPriorHeuristic, SearchConfig, SearchContext};
 
 #[derive(Debug, Clone)]
 struct TrainingExample {

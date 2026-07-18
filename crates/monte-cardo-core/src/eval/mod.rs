@@ -2,16 +2,21 @@ mod actions;
 mod config;
 mod evaluate;
 mod naive;
-mod network;
 mod normalize;
 mod puct;
-mod training;
 mod zobrist;
 
+pub use actions::{ActionMask, MoveID, MoveIDError};
 pub use config::{ActionPriorHeuristic, SearchConfig, SearchContext};
-pub use evaluate::{full_tree_evaluation, get_action_values};
+pub use evaluate::{
+    full_tree_evaluation, get_action_values, value_to_probabilities, EvaluationError,
+};
 pub use naive::{NaiveHeuristic, SimpleHeuristic};
-pub use normalize::{NormalizationError, RankCompressed, RankCompressible, RankCompressionMap};
+pub use normalize::{
+    normalize_incomplete_information_state, NormalizationError, NormalizedIncompleteInformation,
+    RankCompressed, RankCompressible, RankCompressionMap,
+};
+pub use puct::ActionProbabilities;
 
 mod tests {
     use crate::game;
