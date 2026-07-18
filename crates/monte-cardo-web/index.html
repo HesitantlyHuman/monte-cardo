@@ -112,6 +112,85 @@
         display: none;
       }
     }
+
+    .touch-notice {
+      position: fixed;
+      left: 50%;
+      bottom: 62px;
+      z-index: 20;
+
+      width: min(580px, calc(100% - 28px));
+      padding: 12px 14px;
+
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+
+      transform: translateX(-50%);
+
+      border: 1px solid #444;
+      background: rgb(0 0 0 / 96%);
+      color: #aaa;
+
+      font-family:
+        "DejaVu Sans Mono",
+        "Liberation Mono",
+        "Courier New",
+        monospace;
+      font-size: 13px;
+    }
+
+    .touch-notice[hidden] {
+      display: none;
+    }
+
+    .touch-notice__message {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .touch-notice__message h3 {
+      color: #eee;
+      font-weight: normal;
+    }
+
+    .touch-notice__dismiss {
+      flex: none;
+
+      padding: 7px 10px;
+
+      border: 1px solid #555;
+      background: #000;
+      color: #aaa;
+
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .touch-notice__dismiss:hover,
+    .touch-notice__dismiss:focus-visible {
+      border-color: #009b12;
+      color: #eee;
+    }
+
+    .touch-notice__dismiss:focus-visible {
+      outline: 1px solid #009b12;
+      outline-offset: 2px;
+    }
+
+    @media (max-width: 560px) {
+      .touch-notice {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .touch-notice__dismiss {
+        align-self: flex-start;
+      }
+    }
   </style>
 </head>
 
@@ -119,6 +198,21 @@
   <div id="monte-cardo-stage">
     <div id="monte-cardo-root"></div>
   </div>
+
+  <aside id="touch-notice" class="touch-notice" aria-live="polite" hidden>
+    <div class="touch-notice__message">
+      <h3>Keyboard required</h3>
+
+      <span>
+        Monte Cardo uses the arrow keys, Enter, Tab, and Escape for navigation.
+        Touch controls are not currently supported.
+      </span>
+    </div>
+
+    <button id="touch-notice-dismiss" class="touch-notice__dismiss" type="button">
+      Continue anyway
+    </button>
+  </aside>
 
   <footer class="demo-footer">
     <a class="footer-link footer-brand" href="https://hesitantlyhuman.com" target="_blank" rel="noopener noreferrer"
@@ -204,6 +298,66 @@
     });
 
     requestAnimationFrame(fitTerminal);
+  </script>
+
+  <script>
+    const touchNotice = document.getElementById("touch-notice");
+    const touchNoticeDismiss = document.getElementById(
+      "touch-notice-dismiss",
+    );
+
+    const touchNoticeStorageKey =
+      "monte-cardo-touch-notice-dismissed";
+
+    const appearsTouchCapable =
+      navigator.maxTouchPoints > 0 ||
+      window.matchMedia("(any-pointer: coarse)").matches;
+
+    function dismissTouchNotice() {
+      touchNotice.hidden = true;
+
+      try {
+        sessionStorage.setItem(touchNoticeStorageKey, "true");
+      } catch {
+        // The notice can still be dismissed when storage is unavailable.
+      }
+    }
+
+    let noticeWasDismissed = false;
+
+    try {
+      noticeWasDismissed =
+        sessionStorage.getItem(touchNoticeStorageKey) === "true";
+    } catch {
+      // Treat unavailable storage as no previous dismissal.
+    }
+
+    if (appearsTouchCapable && !noticeWasDismissed) {
+      touchNotice.hidden = false;
+    }
+
+    touchNoticeDismiss.addEventListener(
+      "click",
+      dismissTouchNotice,
+    );
+
+    /*
+     * A keyboard event demonstrates that the visitor has keyboard input.
+     * This listener does not prevent or consume the event, so the same key
+     * still reaches Monte Cardo.
+     */
+    window.addEventListener(
+      "keydown",
+      () => {
+        if (!touchNotice.hidden) {
+          dismissTouchNotice();
+        }
+      },
+      {
+        capture: true,
+        once: true,
+      },
+    );
   </script>
 </body>
 
