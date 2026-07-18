@@ -33,29 +33,25 @@ impl Widget for CardPile {
             for x in 0..(area.width).min(self.size + 2) {
                 if y == 0 {
                     if x == self.size {
-                        buf.get_mut(area.x + x, area.y + y).set_symbol(CARD_EDGE);
+                        buf[(area.x + x, area.y + y)].set_symbol(CARD_EDGE);
                     } else if x >= self.size + 1 {
-                        buf.get_mut(area.x + x, area.y + y)
-                            .set_symbol(CARD_TOP_RIGHT);
+                        buf[(area.x + x, area.y + y)].set_symbol(CARD_TOP_RIGHT);
                     } else {
-                        buf.get_mut(area.x + x, area.y + y)
-                            .set_symbol(CARD_TOP_LEFT);
+                        buf[(area.x + x, area.y + y)].set_symbol(CARD_TOP_LEFT);
                     }
                 } else if y == 1 {
                     if x == self.size {
-                        buf.get_mut(area.x + x, area.y + y).set_symbol(CARD_BACK);
+                        buf[(area.x + x, area.y + y)].set_symbol(CARD_BACK);
                     } else {
-                        buf.get_mut(area.x + x, area.y + y).set_symbol(CARD_SIDE);
+                        buf[(area.x + x, area.y + y)].set_symbol(CARD_SIDE);
                     }
                 } else {
                     if x == self.size {
-                        buf.get_mut(area.x + x, area.y + y).set_symbol(CARD_EDGE);
+                        buf[(area.x + x, area.y + y)].set_symbol(CARD_EDGE);
                     } else if x >= self.size + 1 {
-                        buf.get_mut(area.x + x, area.y + y)
-                            .set_symbol(CARD_BOTTOM_RIGHT);
+                        buf[(area.x + x, area.y + y)].set_symbol(CARD_BOTTOM_RIGHT);
                     } else {
-                        buf.get_mut(area.x + x, area.y + y)
-                            .set_symbol(CARD_BOTTOM_LEFT);
+                        buf[(area.x + x, area.y + y)].set_symbol(CARD_BOTTOM_LEFT);
                     }
                 }
             }
@@ -115,7 +111,7 @@ impl Widget for Player {
 
         // If the player is leading, render the leading symbol
         if self.state == PlayerState::Leading || self.state == PlayerState::LeadingOut {
-            temp_buffer.get_mut(0, 1).set_symbol("★");
+            temp_buffer[(0, 1)].set_symbol("★");
         }
 
         if area.width > (4 + 2 * padding) {
@@ -147,15 +143,14 @@ impl Widget for Player {
                 if new_x >= ((area.x + area.width) - 1) - padding {
                     break;
                 }
-                let cell = temp_buffer.get(x, y);
-                buf.get_mut(new_x, new_y).set_symbol(cell.symbol());
+                let cell = &temp_buffer[(x, y)];
+                buf[(new_x, new_y)].set_symbol(cell.symbol());
                 match self.state {
                     PlayerState::Normal | PlayerState::Leading | PlayerState::Active => {
-                        buf.get_mut(new_x, new_y).set_style(cell.style());
+                        buf[(new_x, new_y)].set_style(cell.style());
                     }
                     PlayerState::NormalOut | PlayerState::LeadingOut | PlayerState::Passed => {
-                        buf.get_mut(new_x, new_y)
-                            .set_style(cell.style().fg(Color::DarkGray));
+                        buf[(new_x, new_y)].set_style(cell.style().fg(Color::DarkGray));
                     }
                 }
             }
@@ -165,9 +160,8 @@ impl Widget for Player {
         if self.state == PlayerState::Active {
             for y in area.y..area.height + area.y {
                 for x in area.x..area.width + area.x {
-                    let cell = buf.get(x, y).clone();
-                    buf.get_mut(x, y)
-                        .set_style(cell.style().bg(Color::DarkGray));
+                    let style = &buf[(x, y)].style();
+                    buf[(x, y)].set_style(style.bg(Color::DarkGray));
                 }
             }
         }

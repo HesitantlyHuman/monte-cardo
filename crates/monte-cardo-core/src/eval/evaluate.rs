@@ -112,29 +112,29 @@ pub fn get_action_values<H: ActionPriorHeuristic>(
     )
 }
 
-fn best_action_from_values(
-    action_values: ActionValueMatrix,
-    action_mask: ActionMask,
-    player: game::PlayerID,
-) -> Result<MoveID, EvaluationError> {
-    let mut best_action = None;
-    let mut best_action_value = f32::NEG_INFINITY;
+// fn best_action_from_values(
+//     action_values: ActionValueMatrix,
+//     action_mask: ActionMask,
+//     player: game::PlayerID,
+// ) -> Result<MoveID, EvaluationError> {
+//     let mut best_action = None;
+//     let mut best_action_value = f32::NEG_INFINITY;
 
-    for move_id in MoveID::all() {
-        if !action_mask[move_id] {
-            continue;
-        }
+//     for move_id in MoveID::all() {
+//         if !action_mask[move_id] {
+//             continue;
+//         }
 
-        let value = action_values[move_id][player];
+//         let value = action_values[move_id][player];
 
-        if value > best_action_value {
-            best_action = Some(move_id);
-            best_action_value = value;
-        }
-    }
+//         if value > best_action_value {
+//             best_action = Some(move_id);
+//             best_action_value = value;
+//         }
+//     }
 
-    return best_action.ok_or_else(|| EvaluationError::NoValidActions);
-}
+//     return best_action.ok_or_else(|| EvaluationError::NoValidActions);
+// }
 
 /// Returns a full tree evaluation of the current incomplete information state.
 ///

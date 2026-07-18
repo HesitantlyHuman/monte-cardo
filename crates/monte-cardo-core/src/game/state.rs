@@ -1,11 +1,12 @@
 use rand::{rngs::SmallRng, RngExt};
+use serde::{Deserialize, Serialize};
 
 use crate::consts;
 use crate::game::actions::Trick;
 use crate::game::collections::{HandSizes, PlayerHand, PlayerIndexed, PlayerPlacements};
 use crate::game::primitives::{CardCount, CardRank, PlayerID};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IncompleteInformationGameState {
     pub current_player_number: PlayerID,
     pub perspective_player_number: PlayerID,

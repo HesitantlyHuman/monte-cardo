@@ -205,8 +205,17 @@ fn render_menu_options(area: Rect, buf: &mut Buffer, selected_index: usize) {
 }
 
 fn render_controls(area: Rect, buf: &mut Buffer) {
+    #[cfg(not(target_arch = "wasm32"))]
     Paragraph::new(Line::from(Span::styled(
         "↑/↓ Select     Enter Continue     Ctrl+C Quit",
+        Style::default().fg(Color::DarkGray),
+    )))
+    .alignment(Alignment::Center)
+    .render(area, buf);
+
+    #[cfg(target_arch = "wasm32")]
+    Paragraph::new(Line::from(Span::styled(
+        "↑/↓ Select     Enter Continue",
         Style::default().fg(Color::DarkGray),
     )))
     .alignment(Alignment::Center)

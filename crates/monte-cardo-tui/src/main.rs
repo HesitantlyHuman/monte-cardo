@@ -1,14 +1,18 @@
 use std::io::{self, stdout};
 
+#[cfg(not(target_arch = "wasm32"))]
 use crossterm::{
     event::{self, KeyEvent, KeyModifiers},
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
     ExecutableCommand,
 };
 
+#[cfg(not(target_arch = "wasm32"))]
 use ratatui::prelude::CrosstermBackend;
 
+#[cfg(not(target_arch = "wasm32"))]
 use crossterm::event::{Event, KeyCode};
+
 use monte_cardo_tui::{App, AppKey};
 
 fn map_crossterm_key(event: KeyEvent) -> Option<AppKey> {
@@ -29,8 +33,8 @@ fn map_crossterm_key(event: KeyEvent) -> Option<AppKey> {
         KeyCode::Char(c) => {
             if event.modifiers == KeyModifiers::CONTROL {
                 match c {
-                    'c' => AppKey::ControlC,
-                    'q' => AppKey::ControlQ,
+                    'c' => AppKey::Shutdown,
+                    'q' => AppKey::Quit,
                     _ => AppKey::Char(c),
                 }
             } else {

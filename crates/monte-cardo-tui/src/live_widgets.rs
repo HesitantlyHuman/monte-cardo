@@ -209,13 +209,14 @@ impl LiveSetupState {
         }
     }
 
-    pub fn adjust_starting_player(&mut self, settings: &GameSettings, delta: isize) {
-        if delta > 0 {
-            self.starting_player = (self.starting_player + 1).min(settings.number_of_players - 1);
-        } else if delta < 0 {
-            self.starting_player = self.starting_player.saturating_sub(1);
-        }
-    }
+    // TODO: Why do we not need this?
+    // pub fn adjust_starting_player(&mut self, settings: &GameSettings, delta: isize) {
+    //     if delta > 0 {
+    //         self.starting_player = (self.starting_player + 1).min(settings.number_of_players - 1);
+    //     } else if delta < 0 {
+    //         self.starting_player = self.starting_player.saturating_sub(1);
+    //     }
+    // }
 
     pub fn move_player_column(&mut self, delta: isize) {
         if delta == 0 {

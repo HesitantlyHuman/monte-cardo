@@ -57,13 +57,25 @@ impl Widget for GameState {
         // Split the header into two with a 1 character separation
         let header_left = (header_area.width - 3) / 2;
         let header_right = (header_area.width - 3) - header_left;
+
+        #[cfg(not(target_arch = "wasm32"))]
         let header_right_message = "Ctrl + Q : Quit to menu";
+
+        #[cfg(target_arch = "wasm32")]
+        let header_right_message = "";
+
         let header_right_padding_size = if header_right_message.len() as u16 > header_right {
             0
         } else {
             (header_right - header_right_message.len() as u16).min(3)
         };
+
+        #[cfg(not(target_arch = "wasm32"))]
         let header_left_message = "Ctrl + C : Quit to terminal";
+
+        #[cfg(target_arch = "wasm32")]
+        let header_left_message = "Esc : Quit to menu";
+
         let header_left_padding_size = if header_left_message.len() as u16 > header_left {
             0
         } else {
@@ -89,19 +101,18 @@ impl Widget for GameState {
             },
             buf,
         );
-        buf.get_mut(header_area.x + header_left, header_area.y + 1)
-            .set_symbol("│");
+
+        #[cfg(not(target_arch = "wasm32"))]
+        buf[(header_area.x + header_left, header_area.y + 1)].set_symbol("│");
 
         if area.height <= 2 {
             return;
         }
 
-        buf.get_mut(area.x, area.y + 2).set_symbol("┣");
-        buf.get_mut(area.x + area.width - 1, area.y + 2)
-            .set_symbol("┫");
+        buf[(area.x, area.y + 2)].set_symbol("┣");
+        buf[(area.x + area.width - 1, area.y + 2)].set_symbol("┫");
         let player_panel_width = ((area.width as f32 * 0.25) as u16).max(28);
-        buf.get_mut(area.x + player_panel_width - 1, area.y + 2)
-            .set_symbol("┳");
+        buf[(area.x + player_panel_width - 1, area.y + 2)].set_symbol("┳");
 
         if area.height <= 3 {
             return;
@@ -145,31 +156,27 @@ impl Widget for GameState {
                     buf,
                 );
             }
-            buf.get_mut(
+            buf[(
                 area.x + player_panel_width - 1,
                 area.y + area.height - hand_panel_height,
-            )
-            .set_symbol("┣");
-            buf.get_mut(
+            )]
+                .set_symbol("┣");
+            buf[(
                 area.x + area.width - 1,
                 area.y + area.height - hand_panel_height,
-            )
-            .set_symbol("┫");
+            )]
+                .set_symbol("┫");
 
             // Top
             if hand_panel_area.height > 2 {
-                buf.get_mut(area.x + player_panel_width - 1, hand_panel_area.y + 2)
-                    .set_symbol("┠");
-                buf.get_mut(area.x + area.width - 1, hand_panel_area.y + 2)
-                    .set_symbol("┨");
+                buf[(area.x + player_panel_width - 1, hand_panel_area.y + 2)].set_symbol("┠");
+                buf[(area.x + area.width - 1, hand_panel_area.y + 2)].set_symbol("┨");
             }
 
             // Bottom
             if hand_panel_area.height > 4 {
-                buf.get_mut(area.x + player_panel_width - 1, area.y + area.height - 3)
-                    .set_symbol("┠");
-                buf.get_mut(area.x + area.width - 1, area.y + area.height - 3)
-                    .set_symbol("┨");
+                buf[(area.x + player_panel_width - 1, area.y + area.height - 3)].set_symbol("┠");
+                buf[(area.x + area.width - 1, area.y + area.height - 3)].set_symbol("┨");
             }
         }
 
@@ -183,8 +190,7 @@ impl Widget for GameState {
             },
             buf,
         );
-        buf.get_mut(area.x + player_panel_width - 1, area.y + area.height - 1)
-            .set_symbol("┻");
+        buf[(area.x + player_panel_width - 1, area.y + area.height - 1)].set_symbol("┻");
 
         // Now, lets render the table and trick history
         let table_and_trick_history =

@@ -7,6 +7,7 @@ use crate::live_widgets::{
 use crate::main_menu_widgets::MainMenu;
 use crate::rank_count_editor::fixed_max_counts;
 use crate::settings_widgets::SettingsPage;
+use crate::solver_worker::{SolverClient, SolverPurpose, SolverResponse};
 use crate::AppKey;
 use crate::{
     cards,
@@ -14,11 +15,11 @@ use crate::{
         adjust_number_of_players, set_number_of_players_from_text, GameMode, GameSettings,
         PlayerPanelSelection, SettingsFocus, SettingsFormState,
     },
-    solver_worker::{SolverClient, SolverPurpose, SolverResponse},
     view_model,
 };
-use crossterm::event::{Event, KeyModifiers};
+
 use monte_cardo_core::{eval, game as core_game};
+#[allow(unused_imports)]
 use ratatui::{
     layout::{Alignment, Rect},
     style::{Color, Modifier, Style},
@@ -111,13 +112,9 @@ pub struct App {
     observed_move: ObservedMoveInputState,
     session: Option<GameSession>,
 
-    #[cfg(not(target_arch = "wasm32"))]
     solver_client: SolverClient,
-    #[cfg(not(target_arch = "wasm32"))]
     pending_solver_request: Option<PendingSolverRequest>,
-    #[cfg(not(target_arch = "wasm32"))]
     current_action_values: Option<Vec<(core_game::Move, f32)>>,
-    #[cfg(not(target_arch = "wasm32"))]
     solver_error: Option<String>,
 
     should_quit: bool,
@@ -134,13 +131,9 @@ impl App {
             observed_move: ObservedMoveInputState::new(),
             session: None,
 
-            #[cfg(not(target_arch = "wasm32"))]
             solver_client: SolverClient::new(),
-            #[cfg(not(target_arch = "wasm32"))]
             pending_solver_request: None,
-            #[cfg(not(target_arch = "wasm32"))]
             current_action_values: None,
-            #[cfg(not(target_arch = "wasm32"))]
             solver_error: None,
 
             should_quit: false,
@@ -164,22 +157,20 @@ impl App {
     }
 
     pub fn tick(&mut self) {
-        #[cfg(not(target_arch = "wasm32"))]
         for response in self.solver_client.drain_responses() {
             self.handle_solver_response(response);
         }
 
-        #[cfg(not(target_arch = "wasm32"))]
         self.ensure_solver_request();
     }
 
     pub fn handle_event(&mut self, key: AppKey) -> io::Result<()> {
-        if key == AppKey::ControlC {
+        if key == AppKey::Shutdown {
             self.should_quit = true;
             return Ok(());
         }
 
-        if key == AppKey::ControlQ {
+        if key == AppKey::Quit {
             match self.screen {
                 Screen::Playing | Screen::Settings | Screen::LiveHandInput | Screen::GameOver => {
                     self.return_to_main_menu();
@@ -218,12 +209,10 @@ impl App {
     fn render_live_hand_input(&self, frame: &mut Frame, area: Rect) {
         let panel = centered_rect(area, 96, area.height.saturating_sub(2).min(20));
 
+        let solver_error = self.solver_error.as_deref();
+
         frame.render_widget(
-            LiveSetupPage::new(
-                &self.settings,
-                &self.live_setup,
-                self.solver_error.as_deref(),
-            ),
+            LiveSetupPage::new(&self.settings, &self.live_setup, solver_error),
             panel,
         );
     }
@@ -288,7 +277,6 @@ impl App {
             }
         }
 
-        #[cfg(not(target_arch = "wasm32"))]
         if let Some(message) = self.solver_status_message() {
             let overlay = Rect::new(area.x + 2, area.y + 1, area.width.saturating_sub(4), 1);
             Clear.render(overlay, frame.buffer_mut());
@@ -338,8 +326,13 @@ impl App {
         lines.extend([
             Line::from(""),
             Line::from("Enter : Play again with same settings"),
-            Line::from("Esc / Ctrl+Q : Main Menu"),
         ]);
+
+        #[cfg(not(target_arch = "wasm32"))]
+        lines.push(Line::from("Esc / Ctrl+Q : Main Menu"));
+
+        #[cfg(target_arch = "wasm32")]
+        lines.push(Line::from("Esc : Main Menu"));
 
         let widget = Paragraph::new(lines)
             .block(
@@ -793,9 +786,11 @@ impl App {
         });
 
         self.observed_move.reset_for_next_move();
+
         self.pending_solver_request = None;
         self.current_action_values = None;
         self.solver_error = None;
+
         self.screen = Screen::Playing;
     }
 
@@ -893,8 +888,6 @@ impl App {
                 }
 
                 ObservedMoveFocus::Action => {}
-
-                _ => {}
             },
             _ => {}
         }
@@ -905,10 +898,28 @@ impl App {
             return;
         };
 
+        // Copy what we need so the immutable session borrow ends before any
+        // method mutably borrows self.
+        let current_player = session.current_player_number();
         let ui_player_id = core_game::PlayerID::new(session.ui_player_number);
+        let mode = session.mode;
 
-        if session.current_player_number() != ui_player_id {
-            if session.mode == GameMode::PlayLive {
+        let entering_observed_move = mode == GameMode::PlayLive && current_player != ui_player_id;
+
+        if key == AppKey::Esc {
+            // Match the settings behavior: the first Escape exits an active
+            // numeric editor, while Escape outside an editor returns to the menu.
+            if entering_observed_move && self.observed_move.editing_count {
+                self.handle_observed_move_key(key);
+            } else {
+                self.return_to_main_menu();
+            }
+
+            return;
+        }
+
+        if current_player != ui_player_id {
+            if mode == GameMode::PlayLive {
                 self.handle_observed_move_key(key);
             }
 
@@ -974,18 +985,19 @@ impl App {
         self.pending_solver_request = None;
         self.current_action_values = None;
         self.solver_error = None;
+
         self.screen = Screen::Playing;
     }
 
     fn return_to_main_menu(&mut self) {
         self.screen = Screen::MainMenu;
         self.session = None;
+
         self.pending_solver_request = None;
         self.current_action_values = None;
         self.solver_error = None;
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     fn ensure_solver_request(&mut self) {
         if self.screen != Screen::Playing {
             return;
@@ -1052,7 +1064,6 @@ impl App {
         });
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     fn handle_solver_response(&mut self, response: SolverResponse) {
         let SolverResponse::ActionValues { request_id, values } = response;
 
@@ -1088,7 +1099,6 @@ impl App {
         }
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     fn solver_status_message(&self) -> Option<String> {
         if let Some(error) = &self.solver_error {
             return Some(format!("Solver error: {}", error));
@@ -1269,14 +1279,6 @@ fn centered_rect(area: Rect, width: u16, height: u16) -> Rect {
         y: area.y + area.height.saturating_sub(height) / 2,
         width,
         height,
-    }
-}
-
-fn yes_no(value: bool) -> &'static str {
-    if value {
-        "Yes"
-    } else {
-        "No"
     }
 }
 

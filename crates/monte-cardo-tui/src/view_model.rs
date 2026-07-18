@@ -13,14 +13,6 @@ pub fn core_move_to_card_move(player_move: core_game::Move) -> Option<cards::Mov
     }
 }
 
-pub fn card_move_to_core_move(player_move: cards::Move) -> core_game::Move {
-    core_game::Move::Play(core_game::Play::new(
-        core_game::CardRank::new(player_move.rank as usize),
-        core_game::CardCount::new(player_move.num_non_wilds.into()),
-        core_game::CardCount::new(player_move.num_wilds.into()),
-    ))
-}
-
 pub fn build_game_widget(
     num_players: usize,
     ui_player_number: usize,

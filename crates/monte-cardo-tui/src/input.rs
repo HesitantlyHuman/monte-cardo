@@ -13,7 +13,7 @@ pub enum AppKey {
     End,
     PageUp,
     PageDown,
-    ControlC,
-    ControlQ,
+    Shutdown,
+    Quit,
     Char(char),
 }

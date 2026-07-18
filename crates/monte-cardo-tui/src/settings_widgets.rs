@@ -1,4 +1,3 @@
-use monte_cardo_core::consts;
 use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Rect},

@@ -1,9 +1,11 @@
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
+use serde::{Deserialize, Serialize};
+
 use crate::{consts, eval};
 
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PlayerID(usize);
 
 impl PlayerID {
@@ -26,7 +28,7 @@ impl PlayerID {
 }
 
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct CardRank(usize);
 
 impl CardRank {
@@ -77,7 +79,7 @@ impl eval::RankCompressible for CardRank {
 pub const MAX_TOTAL_PLAY: usize = consts::MAX_CARD_NUMBER * 2;
 
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct CardCount(usize);
 
 impl CardCount {

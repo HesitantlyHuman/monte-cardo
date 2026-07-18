@@ -119,8 +119,7 @@ impl Widget for PlayerTurnHand {
         );
 
         // Render separator
-        buf.get_mut(area.x + selected_move_width, area.y)
-            .set_symbol(symbols::line::VERTICAL);
+        buf[(area.x + selected_move_width, area.y)].set_symbol(symbols::line::VERTICAL);
 
         let suggested_move = match self.suggested_move {
             SuggestedMove::Suggestion(MoveSuggestion::Move(move_)) => {
@@ -241,7 +240,7 @@ impl Widget for PlayerTurnHand {
         );
 
         // Render separator
-        buf.get_mut(area.x + first_section_width, area.y + area.height - 1)
+        buf[(area.x + first_section_width, area.y + area.height - 1)]
             .set_symbol(symbols::line::VERTICAL);
 
         // Render previous move indicator
@@ -272,11 +271,11 @@ impl Widget for PlayerTurnHand {
         );
 
         // Render separator
-        buf.get_mut(
+        buf[(
             area.x + first_section_width + footer_section_width,
             area.y + area.height - 1,
-        )
-        .set_symbol(symbols::line::VERTICAL);
+        )]
+            .set_symbol(symbols::line::VERTICAL);
 
         // Render pass indicator
         let pass = if self.can_pass {
@@ -297,11 +296,11 @@ impl Widget for PlayerTurnHand {
         );
 
         // Render separator
-        buf.get_mut(
+        buf[(
             area.x + first_section_width + 2 * footer_section_width,
             area.y + area.height - 1,
-        )
-        .set_symbol(symbols::line::VERTICAL);
+        )]
+            .set_symbol(symbols::line::VERTICAL);
 
         // Render confirmation indicator
         let confirm = match self.currently_selected {

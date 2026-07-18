@@ -98,6 +98,7 @@ mod tests {
         }
     }
 
+    #[allow(unused)]
     fn moves_are_equal(a: game::Move, b: game::Move) -> bool {
         match (a, b) {
             (game::Move::Pass, game::Move::Pass) => true,
