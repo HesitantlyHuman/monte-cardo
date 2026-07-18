@@ -16,6 +16,27 @@ rand_distr.workspace = true
 thiserror.workspace = true
 quick_cache.workspace = true
 smallvec.workspace = true
+web-time.workspace = true
+serde.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+console_error_panic_hook = "0.1"
+futures-channel = "0.3"
+futures-util = "0.3"
+js-sys = "0.3"
+serde-wasm-bindgen = "0.6"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+
+web-sys = {
+    version = "0.3",
+    features = [
+        "DedicatedWorkerGlobalScope",
+        "ErrorEvent",
+        "MessageEvent",
+        "Worker",
+    ],
+}
 
 [dev-dependencies]
 criterion = {version = "0.8.2", features = ["html_reports"]}

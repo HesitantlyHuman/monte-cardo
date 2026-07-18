@@ -1,5 +1,7 @@
 use core::fmt;
 
+use serde::{Deserialize, Serialize};
+
 use monte_cardo_core::{consts, eval::SearchConfig};
 
 use crate::rank_count_editor::RankCountEditorState;
@@ -19,7 +21,7 @@ impl GameMode {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SolverHeuristic {
     Naive,
     Simple,
@@ -158,6 +160,7 @@ pub enum PlayerPanelSelection {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SettingsField {
     HeuristicType,
+    #[allow(unused)]
     InvertedOrdering,
     AiSuggestionsEnabled,
     SolverEnabled,
@@ -542,18 +545,6 @@ impl SettingsFormState {
         }
     }
 
-    pub fn move_deck_rank(&mut self, delta: isize) {
-        self.deck_editor.move_rank(delta);
-    }
-
-    pub fn start_deck_editing(&mut self) {
-        self.deck_editor.start_editing();
-    }
-
-    pub fn finish_deck_editing(&mut self) {
-        self.deck_editor.finish_editing();
-    }
-
     pub fn move_player_selection_up(&mut self) -> bool {
         match self.player_selection {
             PlayerPanelSelection::NumberOfPlayers => false,
@@ -645,20 +636,6 @@ impl SettingsFormState {
     pub fn finish_rule_editing(&mut self) {
         self.rules_editing = false;
         self.rules_edit_buffer.clear();
-    }
-}
-
-pub fn adjust_deck_count(settings: &mut GameSettings, rank: usize, delta: isize) {
-    settings.deck[rank] = adjust_usize(settings.deck[rank], delta, 1, 0, 99);
-}
-
-pub fn set_deck_count_from_text(settings: &mut GameSettings, rank: usize, text: &str) {
-    if text.is_empty() {
-        return;
-    }
-
-    if let Ok(value) = text.parse::<usize>() {
-        settings.deck[rank] = value.min(99);
     }
 }
 

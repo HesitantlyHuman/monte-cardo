@@ -289,8 +289,8 @@ impl Widget for TrickHistoryEntry {
                         break;
                     }
 
-                    let cell = temp_buf.get(x, y).clone();
-                    buf.get_mut(new_x, new_y).set_symbol(cell.symbol());
+                    let cell = &temp_buf[(x, y)];
+                    buf[(new_x, new_y)].set_symbol(cell.symbol());
                 }
             }
         } else {
@@ -471,8 +471,8 @@ impl Widget for Hand {
                     break;
                 }
 
-                let cell = buffer.get(x, y).clone();
-                let buffer_cell = buf.get_mut(new_x, new_y);
+                let cell = &buffer[(x, y)];
+                let buffer_cell = &mut buf[(new_x, new_y)];
                 buffer_cell.set_symbol(cell.symbol());
                 buffer_cell.set_style(cell.style());
             }

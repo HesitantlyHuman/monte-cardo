@@ -1,11 +1,13 @@
 use std::ops::{Index, IndexMut};
 
+use serde::{Deserialize, Serialize};
+
 use crate::consts;
 use crate::eval;
 use crate::game::primitives::{CardCount, CardRank, PlayerID};
 
 #[repr(transparent)]
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PlayerHand([CardCount; consts::MAX_CARD_ORDINALITY]);
 
 impl PlayerHand {
@@ -97,7 +99,7 @@ impl eval::RankCompressible for PlayerHand {
 }
 
 #[repr(transparent)]
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlayerIndexed<T>([T; consts::MAX_PLAYERS]);
 
 impl<T> PlayerIndexed<T> {
@@ -147,7 +149,7 @@ impl<T> IndexMut<PlayerID> for PlayerIndexed<T> {
 }
 
 #[repr(transparent)]
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlayerPlacements(PlayerIndexed<usize>);
 
 impl PlayerPlacements {
@@ -213,7 +215,7 @@ impl Index<PlayerID> for PlayerPlacements {
 }
 
 #[repr(transparent)]
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HandSizes(PlayerIndexed<usize>);
 
 impl HandSizes {

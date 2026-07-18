@@ -421,6 +421,7 @@ mod tests {
         PlayerIndexed::new(hands)
     }
 
+    #[allow(unused)]
     fn hand_sizes_from_hands(
         player_hands: &PlayerIndexed<PlayerHand>,
         number_of_players: usize,

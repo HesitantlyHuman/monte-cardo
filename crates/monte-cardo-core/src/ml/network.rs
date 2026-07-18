@@ -1,5 +1,5 @@
 use crate::consts;
-use crate::eval::normalize::NormalizedIncompleteInformation;
+use crate::eval::NormalizedIncompleteInformation;
 use crate::game::{CardRank, PlayerID};
 
 pub const MAX_TOTAL_PLAY: usize = consts::MAX_CARD_NUMBER * 2;

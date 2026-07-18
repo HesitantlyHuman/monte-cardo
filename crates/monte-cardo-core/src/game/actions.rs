@@ -1,8 +1,10 @@
+use serde::{Deserialize, Serialize};
+
 use crate::eval;
 use crate::game::collections::PlayerIndexed;
 use crate::game::primitives::{CardCount, CardRank, PlayerID, MAX_TOTAL_PLAY};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Play {
     pub rank: CardRank,
     pub num_non_wilds: CardCount,
@@ -29,13 +31,13 @@ impl Play {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Move {
     Play(Play),
     Pass,
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TopSet {
     pub player: PlayerID,
     pub rank: CardRank,
@@ -56,7 +58,7 @@ impl TopSet {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Trick {
     pub top_set: Option<TopSet>,
     pub has_passed: PlayerIndexed<bool>,

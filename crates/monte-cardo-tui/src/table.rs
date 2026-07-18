@@ -254,11 +254,9 @@ impl Widget for TableAndTrickHistory {
         );
 
         // Now we need to patch
-        buf.get_mut(area.x + table_width, area.y - 1)
-            .set_symbol("┯");
+        buf[(area.x + table_width, area.y - 1)].set_symbol("┯");
         if buf.area.height > 3 {
-            buf.get_mut(area.x + table_width, area.y + area.height)
-                .set_symbol("┷");
+            buf[(area.x + table_width, area.y + area.height)].set_symbol("┷");
         }
 
         if area.height == 0 {
@@ -306,8 +304,7 @@ impl Widget for TableAndTrickHistory {
         );
 
         // Stich
-        buf.get_mut(area.x + table_width, area.y + 1)
-            .set_symbol("├");
+        buf[(area.x + table_width, area.y + 1)].set_symbol("├");
 
         if area.height <= 2 {
             return;

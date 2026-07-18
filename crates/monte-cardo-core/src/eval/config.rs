@@ -1,8 +1,8 @@
-use std::time;
-
 use quick_cache::unsync::Cache;
 use rand::rngs::SmallRng;
 use rand::SeedableRng;
+use serde::{Deserialize, Serialize};
+use web_time::{Duration, Instant};
 
 use crate::eval::normalize::{NormalizedIncompleteInformation, RankCompressed};
 use crate::eval::puct::{ActionProbabilities, PUCTNode};
@@ -14,7 +14,7 @@ pub trait ActionPriorHeuristic {
     ) -> RankCompressed<ActionProbabilities>;
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SearchConfig {
     pub exploration_factor: f32,
     pub temperature: f32,
@@ -74,7 +74,7 @@ pub struct SearchStats {
 
     pub total_sampled_worlds: usize,
 
-    pub start_time: time::Instant,
+    pub start_time: Instant,
 }
 
 impl SearchStats {
@@ -88,11 +88,11 @@ impl SearchStats {
             full_tree_edges_evaluated: 0,
             full_tree_puct_calls: 0,
             total_sampled_worlds: 0,
-            start_time: time::Instant::now(),
+            start_time: Instant::now(),
         }
     }
 
-    pub fn elapsed(&self) -> time::Duration {
+    pub fn elapsed(&self) -> Duration {
         return self.start_time.elapsed();
     }
 
