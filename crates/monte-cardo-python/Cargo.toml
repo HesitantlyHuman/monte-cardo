@@ -11,5 +11,5 @@ name = "monte_cardo"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.28.3", features = ["abi3-py312"] }
+pyo3 = { version = "0.29.0", features = ["abi3-py312"] }
 monte-cardo-core = { path = "../monte-cardo-core" }
