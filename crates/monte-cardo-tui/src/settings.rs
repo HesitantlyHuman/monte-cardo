@@ -58,7 +58,7 @@ pub struct SolverSettings {
     pub greediness: f32,
     pub full_tree_depth: usize,
     pub num_worlds: usize,
-    pub puct_rollouts_per_leaf: usize,
+    pub node_budget: usize,
     pub puct_rollout_bounds: (usize, usize),
     pub puct_mature_node_min_visits: usize,
     pub puct_node_capacity: usize,
@@ -77,7 +77,7 @@ impl SolverSettings {
             greediness: config.greediness,
             full_tree_depth: config.full_tree_depth,
             num_worlds: config.num_worlds,
-            puct_rollouts_per_leaf: config.puct_rollouts_per_leaf,
+            node_budget: config.node_budget,
             puct_rollout_bounds: config.puct_rollout_bounds,
             puct_mature_node_min_visits: config.puct_mature_node_min_visits,
             puct_node_capacity: config.puct_node_capacity,
@@ -92,7 +92,7 @@ impl SolverSettings {
             greediness: self.greediness,
             full_tree_depth: self.full_tree_depth,
             num_worlds: self.num_worlds,
-            puct_rollouts_per_leaf: self.puct_rollouts_per_leaf,
+            node_budget: self.node_budget,
             puct_rollout_bounds: self.puct_rollout_bounds,
             puct_mature_node_min_visits: self.puct_mature_node_min_visits,
             puct_node_capacity: self.puct_node_capacity,
@@ -169,7 +169,7 @@ pub enum SettingsField {
     Greediness,
     FullTreeDepth,
     NumWorlds,
-    PuctRolloutsPerLeaf,
+    NodeBudget,
     PuctRolloutLowerBound,
     PuctRolloutUpperBound,
     PuctMatureNodeMinVisits,
@@ -192,7 +192,7 @@ impl SettingsField {
             fields.push(Self::Greediness);
             fields.push(Self::FullTreeDepth);
             fields.push(Self::NumWorlds);
-            fields.push(Self::PuctRolloutsPerLeaf);
+            fields.push(Self::NodeBudget);
             fields.push(Self::PuctRolloutLowerBound);
             fields.push(Self::PuctRolloutUpperBound);
             fields.push(Self::PuctMatureNodeMinVisits);
@@ -214,7 +214,7 @@ impl SettingsField {
             Self::Greediness => "Greediness",
             Self::FullTreeDepth => "Full Tree Depth",
             Self::NumWorlds => "Number of Worlds to Consider",
-            Self::PuctRolloutsPerLeaf => "PUCT Rollouts per Leaf",
+            Self::NodeBudget => "Node Budget",
             Self::PuctRolloutLowerBound => "PUCT Rollout Lower Bound",
             Self::PuctRolloutUpperBound => "PUCT Rollout Upper Bound",
             Self::PuctMatureNodeMinVisits => "PUCT Mature Node Min Visits",
@@ -236,7 +236,7 @@ impl SettingsField {
             Self::Greediness => format!("{:.2}", settings.solver.greediness),
             Self::FullTreeDepth => settings.solver.full_tree_depth.to_string(),
             Self::NumWorlds => settings.solver.num_worlds.to_string(),
-            Self::PuctRolloutsPerLeaf => settings.solver.puct_rollouts_per_leaf.to_string(),
+            Self::NodeBudget => settings.solver.node_budget.to_string(),
             Self::PuctRolloutLowerBound => settings.solver.puct_rollout_bounds.0.to_string(),
             Self::PuctRolloutUpperBound => settings.solver.puct_rollout_bounds.1.to_string(),
             Self::PuctMatureNodeMinVisits => {
@@ -314,9 +314,9 @@ impl SettingsField {
                 settings.solver.num_worlds =
                     adjust_usize(settings.solver.num_worlds, delta, 5, 1, 10_000);
             }
-            Self::PuctRolloutsPerLeaf => {
-                settings.solver.puct_rollouts_per_leaf =
-                    adjust_usize(settings.solver.puct_rollouts_per_leaf, delta, 5, 1, 10_000);
+            Self::NodeBudget => {
+                settings.solver.node_budget =
+                    adjust_usize(settings.solver.node_budget, delta, 1_000, 100, 10_000_000);
             }
             Self::PuctRolloutLowerBound => {
                 let upper = settings.solver.puct_rollout_bounds.1;
@@ -399,9 +399,9 @@ impl SettingsField {
                     settings.solver.num_worlds = value.clamp(1, 10_000);
                 }
             }
-            Self::PuctRolloutsPerLeaf => {
+            Self::NodeBudget => {
                 if let Ok(value) = text.parse::<usize>() {
-                    settings.solver.puct_rollouts_per_leaf = value.clamp(1, 10_000);
+                    settings.solver.node_budget = value.clamp(100, 10_000_000);
                 }
             }
             Self::PuctRolloutLowerBound => {
