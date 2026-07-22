@@ -246,7 +246,7 @@ fn puct_evaluation<H: ActionPriorHeuristic>(
         .unzip();
 
     let mut action_value_matrix = ActionValueMatrix::zeros();
-    let mut action_visits = [0; NUM_ACTIONS];
+    let mut action_visits: [usize; NUM_ACTIONS] = [0; NUM_ACTIONS];
 
     // Update search stats
     search_context.stats.total_sampled_worlds += possible_worlds.len();
@@ -255,11 +255,38 @@ fn puct_evaluation<H: ActionPriorHeuristic>(
     let dist =
         WeightedAliasIndex::new(world_probabilities).expect("Failed to build random world index");
 
-    let mut remaining_node_budget = allocated_node_budget;
+    let mut remaining_node_budget = allocated_node_budget as isize;
+
+    for action_id in MoveID::all() {
+        if action_visits[action_id.get()] == 0 {
+            continue;
+        }
+
+        for _ in 0..search_context.config.min_root_visits {
+            let possible_world = &possible_worlds[dist.sample(&mut search_context.rng)];
+            let (first_move, final_values) = puct_rollout(
+                possible_world,
+                search_context,
+                &mut remaining_node_budget,
+                Some(action_id),
+            )?;
+            action_visits[first_move.get()] += 1;
+            for player_id in
+                PlayerID::all_player_ids(incomplete_information_state.number_of_players)
+            {
+                action_value_matrix[first_move][player_id] += final_values[player_id];
+            }
+        }
+    }
+
     while remaining_node_budget > 0 {
         let possible_world = &possible_worlds[dist.sample(&mut search_context.rng)];
-        let (first_move, final_values) =
-            puct_rollout(possible_world, search_context, &mut remaining_node_budget)?;
+        let (first_move, final_values) = puct_rollout(
+            possible_world,
+            search_context,
+            &mut remaining_node_budget,
+            None,
+        )?;
         action_visits[first_move.get()] += 1;
         for player_id in PlayerID::all_player_ids(incomplete_information_state.number_of_players) {
             action_value_matrix[first_move][player_id] += final_values[player_id];

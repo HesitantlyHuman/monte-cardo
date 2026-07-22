@@ -311,7 +311,8 @@ fn create_search_node<H: ActionPriorHeuristic>(
 pub fn puct_rollout<H: ActionPriorHeuristic>(
     world: &game::FullInformationGameState,
     search_context: &mut SearchContext<H>,
-    node_budget: &mut usize,
+    node_budget: &mut isize,
+    first_action: Option<MoveID>,
 ) -> Result<(MoveID, PlayerValues), EvaluationError> {
     // Update search statistics
     search_context.stats.puct_num_rollouts += 1;

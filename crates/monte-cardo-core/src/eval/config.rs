@@ -25,6 +25,7 @@ pub struct SearchConfig {
     pub num_worlds: usize,
 
     pub node_budget: usize,
+    pub min_root_visits: usize,
     pub puct_rollout_bounds: (usize, usize),
     pub puct_mature_node_min_visits: usize,
 
@@ -34,14 +35,15 @@ pub struct SearchConfig {
 impl SearchConfig {
     pub fn inference() -> Self {
         Self {
-            exploration_factor: 1.25,
+            exploration_factor: 1.8,
             temperature: 0.2,
             greediness: 1.5,
-            full_tree_depth: 1,
+            full_tree_depth: 0,
             num_worlds: 30,
             node_budget: 4_000_000,
-            puct_rollout_bounds: (5, 60),
-            puct_mature_node_min_visits: 64,
+            min_root_visits: 5,
+            puct_rollout_bounds: (8, 60),
+            puct_mature_node_min_visits: 256,
             puct_node_capacity: 4_000_000,
         }
     }
@@ -54,8 +56,9 @@ impl SearchConfig {
             full_tree_depth: 1,
             num_worlds: 200,
             node_budget: 4_000_000,
-            puct_rollout_bounds: (5, 60),
-            puct_mature_node_min_visits: 64,
+            min_root_visits: 5,
+            puct_rollout_bounds: (8, 60),
+            puct_mature_node_min_visits: 256,
             puct_node_capacity: 4_000_000,
         }
     }

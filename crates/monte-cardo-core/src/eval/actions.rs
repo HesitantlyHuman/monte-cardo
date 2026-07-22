@@ -150,6 +150,10 @@ impl ActionMask {
         }
         return Self(valid_action_mask);
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = &bool> {
+        self.0.iter()
+    }
 }
 
 impl Index<MoveID> for ActionMask {

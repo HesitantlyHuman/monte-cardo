@@ -27,8 +27,13 @@ fn generate_training_example<H: ActionPriorHeuristic>(
 ) -> Result<(game::Move, TrainingExample), EvaluationError> {
     let search_config = SearchConfig::training(temperature_schedule);
     let mut search_context = SearchContext::new(heuristic, search_config);
-    let (action_values, action_mask) =
-        full_tree_evaluation(&incomplete_information_state, &mut search_context, 0)?;
+    let node_budget = search_context.config.node_budget;
+    let (action_values, action_mask) = full_tree_evaluation(
+        &incomplete_information_state,
+        &mut search_context,
+        0,
+        node_budget,
+    )?;
 
     let action_probabilities = value_to_probabilities(
         &action_values,
