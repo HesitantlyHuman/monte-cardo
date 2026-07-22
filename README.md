@@ -106,4 +106,5 @@ Work on Monte Cardo is not done, and there are a couple of improvements already 
 
 - Training a neural heuristic using self play. This requires finishing `monte-cardo-core`'s `ml` module to support batch generation, and finishing `monte-cardo-python`. Then, we can use PyTorch to train a simple model.
 - Updating both modes of the UI to allow a mix of computer and human opponents. That way we can support pass-and-play.
+- Fixing the rank compression normalization in `monte-cardo-core` to ensure that wilds can still be used as trumps by themselves.
 - Setting the default seed value to `None`, and allowing Monte Cardo to generate a random seed if this is the case.
