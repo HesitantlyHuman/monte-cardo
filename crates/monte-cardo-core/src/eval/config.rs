@@ -24,7 +24,7 @@ pub struct SearchConfig {
 
     pub num_worlds: usize,
 
-    pub puct_rollouts_per_leaf: usize,
+    pub node_budget: usize,
     pub puct_rollout_bounds: (usize, usize),
     pub puct_mature_node_min_visits: usize,
 
@@ -39,7 +39,7 @@ impl SearchConfig {
             greediness: 1.5,
             full_tree_depth: 1,
             num_worlds: 30,
-            puct_rollouts_per_leaf: 70,
+            node_budget: 4_000_000,
             puct_rollout_bounds: (5, 60),
             puct_mature_node_min_visits: 64,
             puct_node_capacity: 4_000_000,
@@ -52,8 +52,8 @@ impl SearchConfig {
             temperature: temperature_schedule,
             greediness: 1.5,
             full_tree_depth: 1,
-            num_worlds: 30,
-            puct_rollouts_per_leaf: 70,
+            num_worlds: 200,
+            node_budget: 4_000_000,
             puct_rollout_bounds: (5, 60),
             puct_mature_node_min_visits: 64,
             puct_node_capacity: 4_000_000,
@@ -131,6 +131,8 @@ impl SearchStats {
     }
 }
 
+// TODO: improve the cache with a custom weighter
+// We should check out the current weighter implementation.
 pub struct SearchContext<'a, H: ActionPriorHeuristic> {
     pub heuristic: &'a mut H,
     pub puct_nodes: Cache<ZobristHash, PUCTNode>,

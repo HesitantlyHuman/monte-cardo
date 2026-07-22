@@ -7,7 +7,7 @@ mod puct;
 mod zobrist;
 
 pub use actions::{ActionMask, MoveID, MoveIDError};
-pub use config::{ActionPriorHeuristic, SearchConfig, SearchContext};
+pub use config::{ActionPriorHeuristic, SearchConfig, SearchContext, SearchStats};
 pub use evaluate::{
     full_tree_evaluation, get_action_values, value_to_probabilities, EvaluationError,
 };

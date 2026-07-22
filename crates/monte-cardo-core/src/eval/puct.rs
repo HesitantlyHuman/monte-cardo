@@ -311,6 +311,7 @@ fn create_search_node<H: ActionPriorHeuristic>(
 pub fn puct_rollout<H: ActionPriorHeuristic>(
     world: &game::FullInformationGameState,
     search_context: &mut SearchContext<H>,
+    node_budget: &mut usize,
 ) -> Result<(MoveID, PlayerValues), EvaluationError> {
     // Update search statistics
     search_context.stats.puct_num_rollouts += 1;
@@ -325,6 +326,7 @@ pub fn puct_rollout<H: ActionPriorHeuristic>(
     // player other than the first can pass, but we will assume that these
     // players are generally more efficient than that.
     for rollout_depth in 0..(consts::MAX_CARD_NUMBER * consts::MAX_CARD_ORDINALITY * 2) {
+        *node_budget -= 1;
         match puct_rollout_step(
             &mut world,
             search_context,

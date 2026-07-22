@@ -101,8 +101,20 @@ pub fn get_action_values<H: ActionPriorHeuristic>(
             == incomplete_information_state.perspective_player_number
     );
 
-    let (action_values, action_mask) =
-        full_tree_evaluation(incomplete_information_state, search_context, 0)?;
+    let (action_values, action_mask) = if search_context.config.full_tree_depth == 0 {
+        puct_evaluation(
+            incomplete_information_state,
+            search_context,
+            search_context.config.node_budget,
+        )?
+    } else {
+        full_tree_evaluation(
+            incomplete_information_state,
+            search_context,
+            0,
+            search_context.config.node_budget,
+        )?
+    };
 
     ordered_player_action_values(
         &action_values,
@@ -111,30 +123,6 @@ pub fn get_action_values<H: ActionPriorHeuristic>(
         &incomplete_information_state.player_hand,
     )
 }
-
-// fn best_action_from_values(
-//     action_values: ActionValueMatrix,
-//     action_mask: ActionMask,
-//     player: game::PlayerID,
-// ) -> Result<MoveID, EvaluationError> {
-//     let mut best_action = None;
-//     let mut best_action_value = f32::NEG_INFINITY;
-
-//     for move_id in MoveID::all() {
-//         if !action_mask[move_id] {
-//             continue;
-//         }
-
-//         let value = action_values[move_id][player];
-
-//         if value > best_action_value {
-//             best_action = Some(move_id);
-//             best_action_value = value;
-//         }
-//     }
-
-//     return best_action.ok_or_else(|| EvaluationError::NoValidActions);
-// }
 
 /// Returns a full tree evaluation of the current incomplete information state.
 ///
@@ -145,6 +133,7 @@ pub fn full_tree_evaluation<H: ActionPriorHeuristic>(
     incomplete_information_state: &game::IncompleteInformationGameState,
     search_context: &mut SearchContext<H>,
     current_depth: usize,
+    allocated_node_budget: usize,
 ) -> Result<(ActionValueMatrix, ActionMask), EvaluationError> {
     let possible_worlds_and_probs = get_possible_worlds(
         &incomplete_information_state,
@@ -163,65 +152,71 @@ pub fn full_tree_evaluation<H: ActionPriorHeuristic>(
     search_context.stats.total_sampled_worlds += possible_worlds_and_probs.len();
     search_context.stats.full_tree_edges_evaluated += NUM_ACTIONS * possible_worlds_and_probs.len();
 
+    let mut branches = Vec::with_capacity(possible_worlds_and_probs.len() * 10);
     for (world, world_probability) in possible_worlds_and_probs {
         for action_id in MoveID::all() {
             // Ignore actions that the current player cannot take.
             if !valid_action_matrix[action_id] {
                 continue;
             }
+            branches.push((action_id, world.clone(), world_probability));
+        }
+    }
+    let root_budget = allocated_node_budget - 1;
+    let (branch_base_budget, num_extra) =
+        (root_budget / branches.len(), root_budget % branches.len());
 
-            let mut hypothetical_world = world.clone();
-            let player_move = action_id.to_move(
-                &hypothetical_world.player_hands[hypothetical_world.current_player_number],
-            )?;
-            match update_world(&mut hypothetical_world, player_move, search_context)? {
-                Some(player_values) => {
-                    // If the game has finished and we have true player values,
-                    // we can just directly update the action value matrix
+    for (branch_index, (action_id, world, world_probability)) in branches.iter_mut().enumerate() {
+        let branch_budget = branch_base_budget + (if branch_index < num_extra { 1 } else { 0 });
+        let player_move = action_id.to_move(&world.player_hands[world.current_player_number])?;
+        match update_world(world, player_move, search_context)? {
+            Some(player_values) => {
+                // If the game has finished and we have true player values,
+                // we can just directly update the action value matrix
+                for player_id in
+                    PlayerID::all_player_ids(incomplete_information_state.number_of_players)
+                {
+                    action_value_matrix[*action_id][player_id] +=
+                        *world_probability * player_values[player_id];
+                }
+            }
+            None => {
+                // If the game is not finished, we calculate the value
+                // matrix from the new postion, after updating the world.
+                let current_player_information = game::create_incomplete_information_game_state(
+                    &world,
+                    world.current_player_number,
+                );
+                // Select our evaluation method depending on depth
+                let (next_value_matrix, valid_next_actions) =
+                    if current_depth + 1 >= search_context.config.full_tree_depth {
+                        search_context.stats.full_tree_puct_calls += 1;
+                        puct_evaluation(&current_player_information, search_context, branch_budget)?
+                    } else {
+                        full_tree_evaluation(
+                            &current_player_information,
+                            search_context,
+                            current_depth + 1,
+                            branch_budget,
+                        )?
+                    };
+                // Update the value matrix according to the likelihood of
+                // the player making various decisions, as estimated by the
+                // temperature.
+                let action_probabilities = value_to_probabilities(
+                    &next_value_matrix,
+                    &valid_next_actions,
+                    world.current_player_number,
+                    search_context.config.temperature,
+                );
+                for next_action_id in MoveID::all() {
                     for player_id in
                         PlayerID::all_player_ids(incomplete_information_state.number_of_players)
                     {
-                        action_value_matrix[action_id][player_id] +=
-                            world_probability * player_values[player_id];
-                    }
-                }
-                None => {
-                    // If the game is not finished, we calculate the value
-                    // matrix from the new postion, after updating the world.
-                    let current_player_information = game::create_incomplete_information_game_state(
-                        &hypothetical_world,
-                        hypothetical_world.current_player_number,
-                    );
-                    // Select our evaluation method depending on depth
-                    let (next_value_matrix, valid_next_actions) =
-                        if current_depth + 1 >= search_context.config.full_tree_depth {
-                            search_context.stats.full_tree_puct_calls += 1;
-                            puct_evaluation(current_player_information, search_context)?
-                        } else {
-                            full_tree_evaluation(
-                                &current_player_information,
-                                search_context,
-                                current_depth + 1,
-                            )?
-                        };
-                    // Update the value matrix according to the likelihood of
-                    // the player making various decisions, as estimated by the
-                    // temperature.
-                    let action_probabilities = value_to_probabilities(
-                        &next_value_matrix,
-                        &valid_next_actions,
-                        hypothetical_world.current_player_number,
-                        search_context.config.temperature,
-                    );
-                    for next_action_id in MoveID::all() {
-                        for player_id in
-                            PlayerID::all_player_ids(incomplete_information_state.number_of_players)
-                        {
-                            action_value_matrix[action_id][player_id] += next_value_matrix
-                                [next_action_id][player_id]
-                                * action_probabilities[next_action_id]
-                                * world_probability;
-                        }
+                        action_value_matrix[*action_id][player_id] += next_value_matrix
+                            [next_action_id][player_id]
+                            * action_probabilities[next_action_id]
+                            * *world_probability;
                     }
                 }
             }
@@ -237,12 +232,13 @@ pub fn full_tree_evaluation<H: ActionPriorHeuristic>(
 ///
 /// Returns a full action value matrix, along with the valid action mask for the current player from the given state.
 fn puct_evaluation<H: ActionPriorHeuristic>(
-    incomplete_information_state: game::IncompleteInformationGameState,
+    incomplete_information_state: &game::IncompleteInformationGameState,
     search_context: &mut SearchContext<H>,
+    allocated_node_budget: usize,
 ) -> Result<(ActionValueMatrix, ActionMask), EvaluationError> {
     let (possible_worlds, world_probabilities): (Vec<game::FullInformationGameState>, Vec<f32>) =
         get_possible_worlds(
-            &incomplete_information_state,
+            incomplete_information_state,
             search_context.config.num_worlds,
             search_context,
         )
@@ -259,9 +255,11 @@ fn puct_evaluation<H: ActionPriorHeuristic>(
     let dist =
         WeightedAliasIndex::new(world_probabilities).expect("Failed to build random world index");
 
-    for _ in 0..search_context.config.puct_rollouts_per_leaf {
+    let mut remaining_node_budget = allocated_node_budget;
+    while remaining_node_budget > 0 {
         let possible_world = &possible_worlds[dist.sample(&mut search_context.rng)];
-        let (first_move, final_values) = puct_rollout(possible_world, search_context)?;
+        let (first_move, final_values) =
+            puct_rollout(possible_world, search_context, &mut remaining_node_budget)?;
         action_visits[first_move.get()] += 1;
         for player_id in PlayerID::all_player_ids(incomplete_information_state.number_of_players) {
             action_value_matrix[first_move][player_id] += final_values[player_id];
