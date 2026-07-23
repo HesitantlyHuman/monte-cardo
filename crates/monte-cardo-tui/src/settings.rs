@@ -59,6 +59,7 @@ pub struct SolverSettings {
     pub full_tree_depth: usize,
     pub num_worlds: usize,
     pub node_budget: usize,
+    pub min_root_visits: usize,
     pub puct_rollout_bounds: (usize, usize),
     pub puct_mature_node_min_visits: usize,
     pub puct_node_capacity: usize,

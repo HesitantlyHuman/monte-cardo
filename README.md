@@ -71,6 +71,8 @@ The main body of Monte Cardo consists of a set of 5 crates, located in `/crates`
 
 `monte-cardo-cli` is a currently unimplemented crate which will eventually house tools for running tournaments and various algorithm testing features.
 
+<!-- TODO: Move all crate specific commands and info into the readme for that crate, and link here -->
+
 ### Starting the Web Service Locally
 The web crate uses `trunk` to serve the static site, and relies on `monte-cardo-tui` to manage providing the correct solver thread with compile targets.
 
@@ -107,3 +109,9 @@ Work on Monte Cardo is not done, and there are a couple of improvements already 
 - Training a neural heuristic using self play. This requires finishing `monte-cardo-core`'s `ml` module to support batch generation, and finishing `monte-cardo-python`. Then, we can use PyTorch to train a simple model.
 - Updating both modes of the UI to allow a mix of computer and human opponents. That way we can support pass-and-play.
 - Setting the default seed value to `None`, and allowing Monte Cardo to generate a random seed if this is the case.
+
+<!--
+TODO: Add the following info:
+- Python version
+- Python building and installing for `monte-cardo-python` with maturin
+-->
