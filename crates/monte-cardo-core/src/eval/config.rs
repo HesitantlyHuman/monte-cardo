@@ -35,10 +35,10 @@ pub struct SearchConfig {
 impl SearchConfig {
     pub fn inference() -> Self {
         Self {
-            exploration_factor: 1.8,
+            exploration_factor: 1.5,
             temperature: 0.2,
             greediness: 1.5,
-            full_tree_depth: 0,
+            full_tree_depth: 1,
             num_worlds: 30,
             node_budget: 4_000_000,
             min_root_visits: 5,
@@ -50,10 +50,10 @@ impl SearchConfig {
 
     pub fn training(temperature_schedule: f32) -> Self {
         Self {
-            exploration_factor: 1.25,
+            exploration_factor: 1.5,
             temperature: temperature_schedule,
             greediness: 1.5,
-            full_tree_depth: 1,
+            full_tree_depth: 0,
             num_worlds: 200,
             node_budget: 4_000_000,
             min_root_visits: 5,

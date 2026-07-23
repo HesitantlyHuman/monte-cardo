@@ -176,6 +176,7 @@ fn puct_score(puct_action: &PUCTAction, times_at_node: usize, exploration_factor
 
     return q_term + exploration_term;
 }
+
 fn select_puct_action(
     node: &PUCTNode,
     rank_compression_map: &RankCompressionMap,
@@ -207,6 +208,20 @@ fn select_puct_action(
         })?;
 
     return Ok((concrete_action, action_index));
+}
+
+fn select_forced_puct_action(
+    forced_action: MoveID,
+    node: &PUCTNode,
+    rank_compression_map: &RankCompressionMap,
+) -> Result<(MoveID, usize), EvaluationError> {
+    let compressed_forced_action = forced_action.rank_compress(rank_compression_map)?;
+    for (puct_action_index, puct_action) in node.actions.iter().enumerate() {
+        if puct_action.action == compressed_forced_action {
+            return Ok((forced_action, puct_action_index));
+        }
+    }
+    Err(EvaluationError::InvalidForcedAction(forced_action))
 }
 
 fn update_puct_node(
@@ -312,7 +327,7 @@ pub fn puct_rollout<H: ActionPriorHeuristic>(
     world: &game::FullInformationGameState,
     search_context: &mut SearchContext<H>,
     node_budget: &mut isize,
-    first_action: Option<MoveID>,
+    forced_action: Option<MoveID>,
 ) -> Result<(MoveID, PlayerValues), EvaluationError> {
     // Update search statistics
     search_context.stats.puct_num_rollouts += 1;
@@ -322,17 +337,36 @@ pub fn puct_rollout<H: ActionPriorHeuristic>(
     let mut nodes_to_update_on_return =
         Vec::with_capacity(consts::MAX_CARD_NUMBER * consts::MAX_CARD_ORDINALITY * 2);
 
-    // Worst case is playing one card per turn
-    // Should theoretically multiply by the number of players, because every
-    // player other than the first can pass, but we will assume that these
-    // players are generally more efficient than that.
-    for rollout_depth in 0..(consts::MAX_CARD_NUMBER * consts::MAX_CARD_ORDINALITY * 2) {
+    let mut rollout_depth = 0;
+    if let Some(forced_action) = forced_action {
         *node_budget -= 1;
         match puct_rollout_step(
             &mut world,
             search_context,
             &mut nodes_to_update_on_return,
             &mut first_action,
+            Some(forced_action),
+            rollout_depth,
+        )? {
+            Some(output) => return Ok(output),
+            None => {}
+        };
+        rollout_depth += 1;
+    }
+
+    // Worst case is playing one card per turn
+    // Should theoretically multiply by the number of players, because every
+    // player other than the first can pass, but we will assume that these
+    // players are generally more efficient than that.
+    for rollout_depth in rollout_depth..(consts::MAX_CARD_NUMBER * consts::MAX_CARD_ORDINALITY * 2)
+    {
+        *node_budget -= 1;
+        match puct_rollout_step(
+            &mut world,
+            search_context,
+            &mut nodes_to_update_on_return,
+            &mut first_action,
+            None,
             rollout_depth,
         )? {
             Some(output) => return Ok(output),
@@ -348,6 +382,7 @@ pub fn puct_rollout_step<H: ActionPriorHeuristic>(
     search_context: &mut SearchContext<H>,
     nodes_to_update: &mut Vec<(usize, PlayerID, ZobristHash)>,
     first_action: &mut Option<MoveID>,
+    forced_action: Option<MoveID>,
     rollout_depth: usize,
 ) -> Result<Option<(MoveID, PlayerValues)>, EvaluationError> {
     // Update node stat
@@ -430,8 +465,12 @@ pub fn puct_rollout_step<H: ActionPriorHeuristic>(
         )));
     }
 
-    let (selected_action, selected_action_index) =
-        { select_puct_action(search_node, &rank_compression_map, exploration_factor)? };
+    let (selected_action, selected_action_index) = match forced_action {
+        Some(forced_action) => {
+            select_forced_puct_action(forced_action, search_node, &rank_compression_map)?
+        }
+        None => select_puct_action(search_node, &rank_compression_map, exploration_factor)?,
+    };
 
     nodes_to_update.push((
         selected_action_index,

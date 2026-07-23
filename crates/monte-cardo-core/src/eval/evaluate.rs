@@ -90,6 +90,8 @@ pub enum EvaluationError {
     RolloutError,
     #[error("Normalization failed: {0}")]
     NormalizationError(#[from] NormalizationError),
+    #[error("Invalid forced root action: {0:?}")]
+    InvalidForcedAction(MoveID),
 }
 
 pub fn get_action_values<H: ActionPriorHeuristic>(
@@ -246,6 +248,10 @@ fn puct_evaluation<H: ActionPriorHeuristic>(
         .unzip();
 
     let mut action_value_matrix = ActionValueMatrix::zeros();
+    let valid_action_mask = ActionMask::from_hand_and_top(
+        &incomplete_information_state.player_hand,
+        &incomplete_information_state.trick.top_set,
+    );
     let mut action_visits: [usize; NUM_ACTIONS] = [0; NUM_ACTIONS];
 
     // Update search stats
@@ -258,7 +264,7 @@ fn puct_evaluation<H: ActionPriorHeuristic>(
     let mut remaining_node_budget = allocated_node_budget as isize;
 
     for action_id in MoveID::all() {
-        if action_visits[action_id.get()] == 0 {
+        if !valid_action_mask[action_id] {
             continue;
         }
 
